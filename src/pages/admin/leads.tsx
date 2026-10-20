@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { SideNav } from '@/components/side-nav'
 import { adminNavigationItems } from '@/components/admin-navigation'
 import { apiBaseUrl } from '@/lib/api'
@@ -138,20 +138,23 @@ export function LeadsPage() {
                     <th className="px-5 py-4 font-semibold">Package</th>
                     <th className="px-5 py-4 font-semibold">Plan date</th>
                     <th className="px-5 py-4 font-semibold">Status</th>
+                    <th className="px-5 py-4 text-right font-semibold">View</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#eee8dc]">
                   {loading && leads.length === 0 && (
-                    <tr><td colSpan={6} className="px-5 py-14 text-center text-sm text-[#77766c]">Loading inquiries…</td></tr>
+                    <tr><td colSpan={7} className="px-5 py-14 text-center text-sm text-[#77766c]">Loading inquiries…</td></tr>
                   )}
                   {!loading && !error && leads.length === 0 && (
-                    <tr><td colSpan={6} className="px-5 py-14 text-center text-sm text-[#77766c]">No {statuses.find((item) => item.value === status)?.label.toLowerCase()} yet.</td></tr>
+                    <tr><td colSpan={7} className="px-5 py-14 text-center text-sm text-[#77766c]">No {statuses.find((item) => item.value === status)?.label.toLowerCase()} yet.</td></tr>
                   )}
                   {leads.map((lead) => (
                     <tr key={lead.id} className="transition-colors hover:bg-[#faf8f1]">
                       <td className="px-5 py-4 text-[#77766c]">{formatDate(lead.date)}</td>
                       <td className="px-5 py-4">
-                        <div className="font-medium text-[#294635]">{lead.customer.name}</div>
+                        <Link to={`/dashboard/leads/${lead.id}`} className="font-medium text-[#294635] hover:text-[#a64f42] hover:underline">
+                          {lead.customer.name}
+                        </Link>
                         <div className="mt-1 text-xs text-[#898679]">{lead.customer.phone}</div>
                       </td>
                       <td className="px-5 py-4 font-medium text-[#294635]">{lead.plan.name}</td>
@@ -161,6 +164,19 @@ export function LeadsPage() {
                         <span className={`inline-flex border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[.1em] ${statusStyles[lead.status]}`}>
                           {statuses.find((item) => item.value === lead.status)?.label ?? lead.status}
                         </span>
+                      </td>
+                      <td className="px-5 py-4 text-right">
+                        <Link
+                          to={`/dashboard/leads/${lead.id}`}
+                          aria-label={`View details for ${lead.customer.name}`}
+                          title="View lead details"
+                          className="inline-grid size-9 place-items-center border border-[#d8cba8] text-[#28513c] transition-colors hover:border-[#28513c] hover:bg-[#f7f1e2] hover:text-[#a64f42]"
+                        >
+                          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className="size-[18px]" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M2.5 12s3.4-6 9.5-6 9.5 6 9.5 6-3.4 6-9.5 6-9.5-6-9.5-6Z" />
+                            <circle cx="12" cy="12" r="2.6" />
+                          </svg>
+                        </Link>
                       </td>
                     </tr>
                   ))}

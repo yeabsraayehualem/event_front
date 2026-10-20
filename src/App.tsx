@@ -13,6 +13,11 @@ const LeadsPage = lazy(() =>
     default: module.LeadsPage,
   }))
 )
+const LeadDetailPage = lazy(() =>
+  import('./pages/admin/lead-detail').then((module) => ({
+    default: module.LeadDetailPage,
+  }))
+)
 
 export default function App() {
   return (
@@ -20,6 +25,14 @@ export default function App() {
       <Routes>
         <Route path="/" element={<CompanyProfilePage />} />
         <Route path="/login" element={<LoginPage />} />
+        <Route
+          path="/dashboard/leads/:leadId"
+          element={
+            <Suspense fallback={<div className="min-h-screen bg-slate-50" />}>
+              <LeadDetailPage />
+            </Suspense>
+          }
+        />
         <Route
           path="/dashboard/leads"
           element={
