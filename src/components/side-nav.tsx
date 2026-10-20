@@ -61,8 +61,10 @@ function SideNavEntry({
     'flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-sm font-medium transition-colors',
     depth > 0 && 'min-h-10 text-[13px]',
     active
-      ? 'bg-indigo-50 text-indigo-700'
-      : 'text-slate-600 hover:bg-slate-100 hover:text-slate-950'
+      ? 'bg-indigo-50 text-indigo-700 side-nav-entry--active'
+      : 'text-slate-600 hover:bg-slate-100 hover:text-slate-950',
+    'side-nav-entry',
+    depth > 0 && 'side-nav-entry--child',
   )
 
   return (
@@ -118,7 +120,7 @@ function SideNavEntry({
             aria-expanded={expanded}
             aria-controls={childListId}
             onClick={() => setExpansion({ pathname, expanded: !expanded })}
-            className="grid size-9 shrink-0 place-items-center rounded-lg text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900"
+            className="side-nav-expand grid size-9 shrink-0 place-items-center rounded-lg text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900"
           >
             <HugeiconsIcon
               icon={expanded ? ArrowDown01Icon : ArrowRight01Icon}
@@ -129,7 +131,7 @@ function SideNavEntry({
         )}
       </div>
       {hasChildren && expanded && (
-        <ul id={childListId} className="ml-5 mt-1 space-y-1 border-l border-slate-200 pl-3">
+        <ul id={childListId} className="side-nav-children ml-5 mt-1 space-y-1 border-l border-slate-200 pl-3">
           {item.children!.map((child) => (
             <SideNavEntry key={`${child.menu}-${child.route ?? ''}`} item={child} depth={depth + 1} />
           ))}
@@ -148,17 +150,12 @@ export function SideNav({
     <aside
       aria-label="Main navigation"
       className={cn(
-        'flex h-screen w-64 shrink-0 flex-col border-r border-slate-200 bg-white px-4 py-6',
+        'bahran-side-nav flex h-screen w-64 shrink-0 flex-col border-r border-slate-200 bg-white px-4 py-6',
         className
       )}
     >
-      <Link to="/" className="mb-9 flex items-center gap-3 px-2">
-        <span className="grid size-10 grid-cols-2 gap-1 rounded-xl bg-indigo-700 p-2.5">
-          <span className="rounded-sm bg-white" />
-          <span className="rounded-sm bg-violet-300" />
-          <span className="rounded-sm bg-indigo-300" />
-          <span className="rounded-sm bg-white/70" />
-        </span>
+      <Link to="/" className="side-nav-brand mb-9 flex items-center gap-3 px-2">
+        <span className="side-nav-mark" aria-hidden="true">✥</span>
         <span className="truncate text-sm font-bold tracking-wide text-slate-800">
           {title}
         </span>

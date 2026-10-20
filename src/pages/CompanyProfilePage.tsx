@@ -4,8 +4,7 @@ import { TraditionSection } from '../components/company-profile/TraditionSection
 import { PlanGrid } from '../components/company-profile/PlanGrid'
 import { InquiryForm } from '../components/company-profile/InquiryForm'
 import { type Plan } from '../components/company-profile/types'
-
-const apiBase = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '')
+import { apiBaseUrl } from '@/lib/api'
 
 export function CompanyProfilePage() {
   const [plans, setPlans] = useState<Plan[]>([])
@@ -25,7 +24,7 @@ export function CompanyProfilePage() {
 
   useEffect(() => {
     const controller = new AbortController()
-    fetch(`${apiBase}/website/plans/`, { signal: controller.signal })
+    fetch(`${apiBaseUrl}/website/plans/`, { signal: controller.signal })
       .then(async (res) => {
         if (!res.ok) throw new Error('We could not load the event plans right now.')
         return res.json()
@@ -79,7 +78,7 @@ export function CompanyProfilePage() {
     }
     setSubmitting(true)
     try {
-      const res = await fetch(`${apiBase}/website/public/leads/`, {
+      const res = await fetch(`${apiBaseUrl}/website/public/leads/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),

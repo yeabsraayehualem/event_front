@@ -39,15 +39,15 @@ export function LoginForm() {
     <form
       noValidate
       onSubmit={handleSubmit(onSubmit)}
-      className="w-full max-w-md"
+      className="login-form"
     >
-      <div className="space-y-4">
-        <div>
+      <div className="login-fields">
+        <div className="login-field">
           <label
             htmlFor="phone"
-            className="mb-2 block text-sm font-semibold text-slate-700"
+            className="login-field-label"
           >
-            Phone
+            Staff phone number
           </label>
           <Input
             id="phone"
@@ -56,19 +56,19 @@ export function LoginForm() {
             placeholder="09********/07********"
             aria-invalid={Boolean(errors.phone)}
             aria-describedby={errors.phone ? 'phone-error' : undefined}
-            className="h-12 rounded-xl border-slate-200 bg-white px-4 text-sm placeholder:text-slate-400 focus-visible:border-indigo-500 focus-visible:ring-indigo-500/20"
+            className="staff-login-input"
             {...register('phone')}
           />
           {errors.phone && (
-            <p id="phone-error" className="mt-2 text-sm text-red-600">
+            <p id="phone-error" className="login-field-error">
               {errors.phone.message}
             </p>
           )}
         </div>
-        <div>
+        <div className="login-field">
           <label
             htmlFor="password"
-            className="mb-2 block text-sm font-semibold text-slate-700"
+            className="login-field-label"
           >
             Password
           </label>
@@ -79,11 +79,11 @@ export function LoginForm() {
             placeholder="Password"
             aria-invalid={Boolean(errors.password)}
             aria-describedby={errors.password ? 'password-error' : undefined}
-            className="h-12 rounded-xl border-slate-200 bg-white px-4 text-sm placeholder:text-slate-400 focus-visible:border-indigo-500 focus-visible:ring-indigo-500/20"
+            className="staff-login-input"
             {...register('password')}
           />
           {errors.password && (
-            <p id="password-error" className="mt-2 text-sm text-red-600">
+            <p id="password-error" className="login-field-error">
               {errors.password.message}
             </p>
           )}
@@ -93,7 +93,7 @@ export function LoginForm() {
       {serverError && (
         <p
           role="alert"
-          className="mt-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700 border border-red-200"
+          className="login-server-error"
         >
           {serverError}
         </p>
@@ -101,7 +101,7 @@ export function LoginForm() {
 
       <Button
         type="submit"
-        className="mt-7 h-12 w-full rounded-xl bg-indigo-700 text-sm font-semibold text-white shadow-lg shadow-indigo-700/15 hover:bg-indigo-800"
+        className="staff-login-submit"
         disabled={isLoading}
       >
         {isLoading ? 'Signing in…' : 'Sign in'}
