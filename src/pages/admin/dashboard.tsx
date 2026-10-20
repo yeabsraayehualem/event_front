@@ -2,8 +2,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   Calendar03Icon,
   ChartBarLineIcon,
-  DashboardSquare01Icon,
-  Settings01Icon,
   Ticket01Icon,
   UserGroupIcon,
 } from '@hugeicons/core-free-icons'
@@ -16,7 +14,8 @@ import {
   Tooltip,
 } from 'recharts'
 import { Link, useNavigate } from 'react-router-dom'
-import { SideNav, type SideNavItem } from '@/components/side-nav'
+import { SideNav } from '@/components/side-nav'
+import { adminNavigationItems } from '@/components/admin-navigation'
 import { apiBaseUrl } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth-store'
 
@@ -57,21 +56,6 @@ type DashboardData = {
   recent_leads: RecentLead[]
   sales_performance: SalesPerformance[]
 }
-
-const navigationItems: SideNavItem[] = [
-  { menu: 'Dashboard', icon: DashboardSquare01Icon, route: '/dashboard' },
-  {
-    menu: 'Events',
-    icon: Calendar03Icon,
-    children: [
-      { menu: 'All events', icon: Calendar03Icon, route: '/dashboard/events' },
-      { menu: 'Create event', icon: Ticket01Icon, route: '/dashboard/events/create' },
-    ],
-  },
-  { menu: 'Guests', icon: UserGroupIcon, route: '/dashboard/guests' },
-  { menu: 'Reports', icon: ChartBarLineIcon, route: '/dashboard/reports' },
-  { menu: 'Settings', icon: Settings01Icon, route: '/dashboard/settings' },
-]
 
 const statusColors: Record<string, string> = {
   lead: '#a64f42',
@@ -159,7 +143,7 @@ export function DashboardPage() {
 
   return (
     <div className="bahran-dashboard flex min-h-screen bg-slate-50">
-      <SideNav items={navigationItems} title="Bahran Events" />
+      <SideNav items={adminNavigationItems} title="Bahran Events" />
 
       <main className="bahran-dashboard-main min-w-0 flex-1 px-5 py-8 sm:px-8 lg:px-10">
         <div className="mx-auto max-w-7xl">

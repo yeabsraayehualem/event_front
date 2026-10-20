@@ -11,6 +11,7 @@ export type SideNavItem = {
   menu: string
   icon: IconSvgElement
   route?: string
+  exact?: boolean
   children?: SideNavItem[]
 }
 
@@ -20,18 +21,18 @@ type SideNavProps = {
   className?: string
 }
 
-function isRouteActive(route: string | undefined, pathname: string) {
+function isRouteActive(route: string | undefined, pathname: string, exact = false) {
   return Boolean(
     route &&
       (pathname === route ||
-        (route !== '/' && pathname.startsWith(`${route}/`)))
+        (!exact && route !== '/' && pathname.startsWith(`${route}/`)))
   )
 }
 
 function hasActiveChild(items: SideNavItem[], pathname: string): boolean {
   return items.some(
     (item) =>
-      isRouteActive(item.route, pathname) ||
+      isRouteActive(item.route, pathname, item.exact) ||
       (item.children && hasActiveChild(item.children, pathname))
   )
 }
@@ -45,8 +46,9 @@ function SideNavEntry({
 }) {
   const { pathname } = useLocation()
   const hasChildren = Boolean(item.children?.length)
-  const active = isRouteActive(item.route, pathname)
+  const active = isRouteActive(item.route, pathname, item.exact)
   const childActive = hasChildren && hasActiveChild(item.children!, pathname)
+  const highlighted = active || Boolean(childActive)
   const [expansion, setExpansion] = useState<{
     pathname: string
     expanded: boolean
@@ -60,7 +62,7 @@ function SideNavEntry({
   const rowClassName = cn(
     'flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-sm font-medium transition-colors',
     depth > 0 && 'min-h-10 text-[13px]',
-    active
+    highlighted
       ? 'bg-indigo-50 text-indigo-700 side-nav-entry--active'
       : 'text-slate-600 hover:bg-slate-100 hover:text-slate-950',
     'side-nav-entry',
@@ -78,7 +80,7 @@ function SideNavEntry({
           >
             <HugeiconsIcon
               icon={item.icon}
-              className={cn('size-[18px] shrink-0', active && 'text-indigo-700')}
+              className={cn('size-[18px] shrink-0', highlighted && 'text-indigo-700')}
               strokeWidth={1.8}
             />
             <span className="min-w-0 flex-1 truncate">{item.menu}</span>
@@ -90,10 +92,11 @@ function SideNavEntry({
             aria-controls={childListId}
             onClick={() => setExpansion({ pathname, expanded: !expanded })}
             className={rowClassName}
+            aria-current={highlighted ? 'location' : undefined}
           >
             <HugeiconsIcon
               icon={item.icon}
-              className="size-[18px] shrink-0"
+              className={cn('size-[18px] shrink-0', highlighted && 'text-indigo-700')}
               strokeWidth={1.8}
             />
             <span className="min-w-0 flex-1 truncate">{item.menu}</span>
