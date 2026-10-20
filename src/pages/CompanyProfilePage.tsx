@@ -75,6 +75,10 @@ export function CompanyProfilePage() {
       plan_date: String(form.get('plan_date') ?? ''),
       location: String(form.get('location') ?? '').trim(),
       notes: String(form.get('notes') ?? '').trim(),
+      event_type: String(form.get('event_type') ?? '').trim(),
+      guest_count: form.get('guest_count') ? Number(form.get('guest_count')) : null,
+      budget_tier: String(form.get('budget_tier') ?? '').trim(),
+      requirements: String(form.get('requirements') ?? '').trim(),
     }
     setSubmitting(true)
     try {

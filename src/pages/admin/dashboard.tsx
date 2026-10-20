@@ -26,6 +26,7 @@ type Summary = {
   won_leads: number
   lost_leads: number
   conversion_rate: number
+  active_events: number
 }
 
 type StatusCount = { status: string; label: string; count: number }
@@ -86,12 +87,18 @@ export function DashboardPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [reloadKey, setReloadKey] = useState(0)
+  const [startDate, setStartDate] = useState('')
+  const [endDate, setEndDate] = useState('')
 
   const loadDashboard = useCallback(async (signal: AbortSignal) => {
     setLoading(true)
     setError('')
     try {
-      const response = await fetch(`${apiBaseUrl}/crm/sales/dashboard/`, {
+      const filters = new URLSearchParams()
+      if (startDate) filters.set('start_date', startDate)
+      if (endDate) filters.set('end_date', endDate)
+      const query = filters.toString()
+      const response = await fetch(`${apiBaseUrl}/crm/sales/dashboard/${query ? `?${query}` : ''}`, {
         credentials: 'include',
         signal,
         headers: { Accept: 'application/json' },
@@ -117,7 +124,7 @@ export function DashboardPage() {
     } finally {
       setLoading(false)
     }
-  }, [logout, navigate])
+  }, [logout, navigate, startDate, endDate])
 
   useEffect(() => {
     const controller = new AbortController()
@@ -131,6 +138,7 @@ export function DashboardPage() {
       { label: 'Total leads', value: dashboard.summary.total_leads.toLocaleString(), detail: 'In your CRM view', icon: Ticket01Icon },
       { label: 'Active leads', value: dashboard.summary.active_leads.toLocaleString(), detail: 'Need follow-up', icon: UserGroupIcon },
       { label: 'Won', value: dashboard.summary.won_leads.toLocaleString(), detail: 'Successfully closed', icon: Calendar03Icon },
+      { label: 'Active events', value: dashboard.summary.active_events.toLocaleString(), detail: 'Planning or in progress', icon: Calendar03Icon },
       { label: 'Conversion rate', value: `${dashboard.summary.conversion_rate}%`, detail: `${dashboard.summary.lost_leads.toLocaleString()} lost`, icon: ChartBarLineIcon },
     ]
   }, [dashboard])
@@ -156,6 +164,12 @@ export function DashboardPage() {
             {dashboard && <span className="dashboard-scope">{dashboard.scope === 'all' ? 'ALL SALES LEADS' : 'MY ASSIGNED LEADS'}</span>}
           </header>
 
+          <section className="mb-6 flex flex-wrap items-end gap-3 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm" aria-label="Filter dashboard by inquiry date">
+            <label className="grid gap-1 text-xs font-medium text-slate-600">From date<input type="date" value={startDate} max={endDate || undefined} onChange={(event) => setStartDate(event.target.value)} className="min-h-10 border border-slate-200 bg-white px-3 text-sm text-slate-800" /></label>
+            <label className="grid gap-1 text-xs font-medium text-slate-600">Through date<input type="date" value={endDate} min={startDate || undefined} onChange={(event) => setEndDate(event.target.value)} className="min-h-10 border border-slate-200 bg-white px-3 text-sm text-slate-800" /></label>
+            {(startDate || endDate) && <button type="button" onClick={() => { setStartDate(''); setEndDate('') }} className="min-h-10 px-3 text-sm font-medium text-indigo-700 hover:bg-indigo-50">Clear dates</button>}
+          </section>
+
           {error && (
             <section className="dashboard-message dashboard-message--error" role="alert">
               <div><strong>We couldn’t load your dashboard.</strong><p>{error}</p></div>
@@ -168,7 +182,7 @@ export function DashboardPage() {
           {loading && !dashboard && <div className="dashboard-message" role="status">Loading your CRM snapshot…</div>}
 
           {dashboard && <>
-            <section aria-label="Lead summary" className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <section aria-label="Sales and event summary" className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
               {stats.map((stat) => (
                 <article key={stat.label} className="dashboard-card dashboard-stat-card rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm">
                   <div className="flex items-center justify-between">

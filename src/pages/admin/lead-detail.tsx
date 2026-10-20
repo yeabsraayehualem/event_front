@@ -5,7 +5,7 @@ import { adminNavigationItems } from '@/components/admin-navigation'
 import { apiBaseUrl } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth-store'
 
-type LeadStatus = 'lead' | 'contacted' | 'negotiation' | 'won' | 'lost' | 'cancelled'
+type LeadStatus = 'lead' | 'contacted' | 'consultation_scheduled' | 'quotation_sent' | 'negotiation' | 'won' | 'lost' | 'cancelled'
 type Lead = {
   id: number
   customer: { id: number; name: string; phone: string }
@@ -17,15 +17,22 @@ type Lead = {
   status: LeadStatus
   status_label: string
   notes: string
+  event_type: string
+  guest_count: number | null
+  budget_tier: string
+  requirements: string
   assigned_sales_person: string | null
   assigned_sales_person_id: number | null
   can_assign_sales: boolean
   available_sales_people: { id: number; name: string }[]
+  event_id: number | null
 }
 
 const statuses: { value: LeadStatus; label: string }[] = [
   { value: 'lead', label: 'New lead' },
   { value: 'contacted', label: 'Contacted' },
+  { value: 'consultation_scheduled', label: 'Consultation scheduled' },
+  { value: 'quotation_sent', label: 'Quotation sent' },
   { value: 'negotiation', label: 'Negotiation' },
   { value: 'won', label: 'Won' },
   { value: 'lost', label: 'Lost' },
@@ -62,6 +69,9 @@ export function LeadDetailPage() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [saved, setSaved] = useState(false)
+  const [showEventPrompt, setShowEventPrompt] = useState(false)
+  const [creatingEvent, setCreatingEvent] = useState(false)
+  const [eventCreated, setEventCreated] = useState<number | null>(null)
 
   const loadLead = useCallback(async (signal: AbortSignal) => {
     setLoading(true)
@@ -81,6 +91,8 @@ export function LeadDetailPage() {
       if (!response.ok) throw new Error(responseMessage(body))
       const data = body as Lead
       setLead(data)
+      setEventCreated(data.event_id)
+      if (data.status === 'won' && !data.event_id) setShowEventPrompt(true)
       setStatus(data.status)
       setNotes(data.notes ?? '')
       setPlanDate(data.plan_date)
@@ -146,6 +158,7 @@ export function LeadDetailPage() {
       if (!response.ok) throw new Error(responseMessage(body))
       const updated = body as Lead
       setLead(updated)
+      setEventCreated(updated.event_id)
       setStatus(updated.status)
       setNotes(updated.notes ?? '')
       setPlanDate(updated.plan_date)
@@ -153,10 +166,41 @@ export function LeadDetailPage() {
       setPackageId(updated.package ? String(updated.package.id) : '')
       setSalesPersonId(updated.assigned_sales_person_id ? String(updated.assigned_sales_person_id) : '')
       setSaved(true)
+      if (updated.status === 'won' && !updated.event_id) setShowEventPrompt(true)
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : 'We could not save this lead.')
     } finally {
       setSaving(false)
+    }
+  }
+
+  async function createEventFromLead() {
+    if (!leadId) return
+    setCreatingEvent(true)
+    setError('')
+    try {
+      const csrfResponse = await fetch(`${apiBaseUrl}/user/csrf/`, { credentials: 'include' })
+      const csrfBody: unknown = await csrfResponse.json()
+      const csrfToken = typeof csrfBody === 'object' && csrfBody !== null && 'csrf_token' in csrfBody
+        ? (csrfBody as { csrf_token?: unknown }).csrf_token : undefined
+      if (!csrfResponse.ok || typeof csrfToken !== 'string') throw new Error('Could not prepare a secure event creation request.')
+      const response = await fetch(`${apiBaseUrl}/crm/sales/leads/${leadId}/convert/`, {
+        method: 'POST', credentials: 'include',
+        headers: { Accept: 'application/json', 'X-CSRFToken': csrfToken },
+      })
+      const body: unknown = await response.json()
+      if (!response.ok) throw new Error(responseMessage(body))
+      const data = typeof body === 'object' && body !== null && 'data' in body
+        ? (body as { data?: { id?: number } }).data : undefined
+      const createdEventId = data?.id
+      if (typeof createdEventId !== 'number') throw new Error('The event was created, but its reference was missing from the response.')
+      setEventCreated(createdEventId)
+      setShowEventPrompt(false)
+      setLead((current) => current ? { ...current, event_id: createdEventId } : current)
+    } catch (eventError) {
+      setError(eventError instanceof Error ? eventError.message : 'We could not create the event.')
+    } finally {
+      setCreatingEvent(false)
     }
   }
 
@@ -173,6 +217,12 @@ export function LeadDetailPage() {
 
           {lead && (
             <>
+              {lead.status === 'won' && (
+                <section className="mb-6 flex flex-wrap items-center justify-between gap-4 border border-[#d8cba8] bg-[#fffdf7] p-5" aria-label="Won lead event conversion">
+                  <div><h2 className="font-serif text-lg text-[#294635]">This celebration is won</h2><p className="mt-1 text-sm text-[#77766c]">Create its event record to carry the confirmed details forward.</p>{eventCreated && <p className="mt-2 text-sm font-semibold text-[#28513c]" role="status">Event #{eventCreated} is linked to this lead.</p>}</div>
+                  {!eventCreated && <button type="button" onClick={() => setShowEventPrompt(true)} className="min-h-11 bg-[#28513c] px-5 text-xs font-semibold uppercase tracking-[.1em] text-[#fff9e9] hover:bg-[#1d3d2c]">Create event <span className="ml-2 text-[#e1c779]">↗</span></button>}
+                </section>
+              )}
               <header className="mb-8 flex flex-wrap items-end justify-between gap-4">
                 <div>
                   <p className="dashboard-date mb-2">Lead workspace · #{lead.id}</p>
@@ -193,6 +243,10 @@ export function LeadDetailPage() {
                     <div><dt className="mb-1 text-[10px] font-semibold uppercase tracking-[.12em] text-[#898679]">Event date</dt><dd className="text-sm font-medium text-[#294635]">{formatDate(lead.plan_date)}</dd></div>
                     <div><dt className="mb-1 text-[10px] font-semibold uppercase tracking-[.12em] text-[#898679]">Plan</dt><dd className="text-sm font-medium text-[#294635]">{lead.plan.name}</dd></div>
                     <div><dt className="mb-1 text-[10px] font-semibold uppercase tracking-[.12em] text-[#898679]">Package</dt><dd className="text-sm font-medium text-[#294635]">{lead.package?.name ?? 'No package selected'}</dd></div>
+                    <div><dt className="mb-1 text-[10px] font-semibold uppercase tracking-[.12em] text-[#898679]">Event type</dt><dd className="text-sm font-medium text-[#294635]">{lead.event_type || 'Not provided'}</dd></div>
+                    <div><dt className="mb-1 text-[10px] font-semibold uppercase tracking-[.12em] text-[#898679]">Estimated guests</dt><dd className="text-sm font-medium text-[#294635]">{lead.guest_count ?? 'Not provided'}</dd></div>
+                    <div><dt className="mb-1 text-[10px] font-semibold uppercase tracking-[.12em] text-[#898679]">Budget range</dt><dd className="text-sm font-medium text-[#294635]">{lead.budget_tier || 'Not provided'}</dd></div>
+                    <div className="sm:col-span-2"><dt className="mb-1 text-[10px] font-semibold uppercase tracking-[.12em] text-[#898679]">Requirements</dt><dd className="whitespace-pre-wrap text-sm font-medium text-[#294635]">{lead.requirements || 'No additional requirements provided'}</dd></div>
                     <div className="sm:col-span-2"><dt className="mb-1 text-[10px] font-semibold uppercase tracking-[.12em] text-[#898679]">Location</dt><dd className="text-sm font-medium text-[#294635]">{lead.location || 'Not provided'}</dd></div>
                   </dl>
                   {lead.package?.contents?.length ? (
@@ -255,6 +309,19 @@ export function LeadDetailPage() {
           )}
         </div>
       </main>
+      {showEventPrompt && lead?.status === 'won' && !eventCreated && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-[#17251d]/55 p-4" role="presentation">
+          <section role="dialog" aria-modal="true" aria-labelledby="won-event-title" className="w-full max-w-md border border-[#d8cba8] bg-[#fffdf7] p-7 shadow-2xl">
+            <p className="text-xs font-semibold uppercase tracking-[.16em] text-[#a64f42]">A new beginning</p>
+            <h2 id="won-event-title" className="mt-2 font-serif text-2xl text-[#294635]">Create the event now?</h2>
+            <p className="mt-3 text-sm leading-6 text-[#77766c]">The confirmed customer, celebration, date, package, and location will be carried into an event record.</p>
+            <div className="mt-6 flex justify-end gap-3">
+              <button type="button" onClick={() => setShowEventPrompt(false)} className="min-h-11 border border-[#d8cba8] px-4 text-sm text-[#53614a]">Later</button>
+              <button type="button" disabled={creatingEvent} onClick={() => void createEventFromLead()} className="min-h-11 bg-[#28513c] px-5 text-sm font-semibold text-white disabled:opacity-60">{creatingEvent ? 'Creating…' : 'Create event'}</button>
+            </div>
+          </section>
+        </div>
+      )}
     </div>
   )
 }

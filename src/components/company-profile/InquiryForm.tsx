@@ -103,8 +103,8 @@ export function InquiryForm({
             <input name="phone" autoComplete="tel" placeholder="+251 …" required />
           </label>
           <label className="form-wide">
-            Email address <span className="optional">OPTIONAL</span>
-            <input name="email" type="email" autoComplete="email" placeholder="you@example.com" />
+            Email address
+            <input name="email" type="email" autoComplete="email" placeholder="you@example.com" required />
           </label>
 
           <label>
@@ -114,6 +114,18 @@ export function InquiryForm({
               {plans.map((plan) => (
                 <option key={plan.id} value={String(plan.id)}>{plan.name}</option>
               ))}
+            </select>
+          </label>
+
+          <label>
+            Event type
+            <select name="event_type" required defaultValue="">
+              <option value="" disabled>Select an occasion</option>
+              <option>Orthodox wedding</option>
+              <option>Engagement</option>
+              <option>Christening</option>
+              <option>Family celebration</option>
+              <option>Other</option>
             </select>
           </label>
 
@@ -144,6 +156,24 @@ export function InquiryForm({
           <label>
             Event location
             <input name="location" placeholder="City or venue" required />
+          </label>
+          <label>
+            Estimated guests <span className="optional">OPTIONAL</span>
+            <input name="guest_count" type="number" min="1" placeholder="e.g. 150" />
+          </label>
+          <label>
+            Budget range <span className="optional">OPTIONAL</span>
+            <select name="budget_tier" defaultValue="">
+              <option value="">We are still deciding</option>
+              <option>Under ETB 100,000</option>
+              <option>ETB 100,000–300,000</option>
+              <option>ETB 300,000–600,000</option>
+              <option>Over ETB 600,000</option>
+            </select>
+          </label>
+          <label className="form-wide">
+            Requirements or traditions to include <span className="optional">OPTIONAL</span>
+            <textarea name="requirements" rows={3} placeholder="Share important details, customs, or accessibility needs." />
           </label>
           <label className="form-wide">
             A little more about your plans <span className="optional">OPTIONAL</span>
