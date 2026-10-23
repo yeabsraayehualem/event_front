@@ -49,7 +49,8 @@ function formatDate(value: string) {
 export function LeadsPage() {
   const navigate = useNavigate()
   const logout = useAuthStore((state) => state.logout)
-  const [status, setStatus] = useState<LeadStatus>('lead')
+  const [status, setStatus] = useState<LeadStatus | 'all'>('all')
+  const [search, setSearch] = useState('')
   const [leads, setLeads] = useState<Lead[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -58,6 +59,12 @@ export function LeadsPage() {
   const [boardMessage, setBoardMessage] = useState('')
   const [wonLead, setWonLead] = useState<Lead | null>(null)
   const [convertingWonLead, setConvertingWonLead] = useState(false)
+  const visibleLeads = leads.filter((lead) => {
+    const query = search.trim().toLowerCase()
+    if (!query) return true
+    return [lead.customer.name, lead.customer.phone, lead.plan.name, lead.package?.name ?? '']
+      .some((value) => value.toLowerCase().includes(query))
+  })
 
   const loadLeads = useCallback(async (signal: AbortSignal) => {
     setLoading(true)
@@ -151,29 +158,18 @@ export function LeadsPage() {
       <SideNav items={adminNavigationItems} title="Bahran Events" />
       <main className="bahran-dashboard-main min-w-0 flex-1 px-5 py-8 sm:px-8 lg:px-10">
         <div className="mx-auto max-w-7xl">
-          <header className="mb-8 flex flex-wrap items-end justify-between gap-4">
+          <header className="mb-7 flex flex-wrap items-end justify-between gap-4">
             <div>
-              <p className="dashboard-date mb-2 text-sm font-medium">Client inquiries</p>
-              <h1 className="dashboard-title text-3xl font-semibold tracking-tight">Leads</h1>
+              <p className="dashboard-date mb-2">Sales workspace</p>
+              <h1 className="dashboard-title">Leads</h1>
               <p className="dashboard-subtitle">Review each inquiry and its requested event plan.</p>
             </div>
             <div className="flex flex-wrap items-center gap-3">
-            <div className="inline-flex border border-[#d8cba8] bg-[#fffdf7] p-1 text-xs font-semibold">
-              <button type="button" aria-pressed={viewMode === 'table'} onClick={() => setViewMode('table')} className={`px-3 py-2 ${viewMode === 'table' ? 'bg-[#28513c] text-white' : 'text-[#53614a]'}`}>Table</button>
-              <button type="button" aria-pressed={viewMode === 'board'} onClick={() => setViewMode('board')} className={`px-3 py-2 ${viewMode === 'board' ? 'bg-[#28513c] text-white' : 'text-[#53614a]'}`}>Board</button>
+            <div className="leads-view-toggle inline-flex border border-[#e5e1d6] bg-white p-1 text-xs font-semibold shadow-sm">
+              <button type="button" aria-pressed={viewMode === 'table'} onClick={() => setViewMode('table')} className={`px-3 py-2 rounded-lg ${viewMode === 'table' ? 'bg-[#28513c] text-white' : 'text-[#53614a]'}`}>Table</button>
+              <button type="button" aria-pressed={viewMode === 'board'} onClick={() => setViewMode('board')} className={`px-3 py-2 rounded-lg${viewMode === 'board' ? 'bg-[#28513c] text-white' : 'text-[#53614a]'}`}>Board</button>
             </div>
-            {viewMode === 'table' && <label className="flex items-center gap-3 text-xs font-semibold uppercase tracking-[.12em] text-[#77766c]">
-              Filter by status
-              <select
-                value={status}
-                onChange={(event) => setStatus(event.target.value as LeadStatus)}
-                className="min-h-11 border border-[#d8cba8] bg-[#fffdf7] px-3 text-sm font-medium normal-case tracking-normal text-[#294635] outline-none focus:border-[#28513c]"
-              >
-                {statuses.map((option) => (
-                  <option key={option.value} value={option.value}>{option.label}</option>
-                ))}
-              </select>
-            </label>}
+            <Link to="/dashboard/leads/new" className="invoice-primary-action inline-flex min-h-10 items-center rounded-lg bg-[#28513c] px-4 text-sm font-medium text-white transition-colors hover:bg-[#1d3d2c]">New lead <span className="ml-2 text-[#e1c779]">+</span></Link>
             </div>
           </header>
 
@@ -207,13 +203,25 @@ export function LeadsPage() {
               </div>
             })}
           </section>
-          ) : <section className="dashboard-card overflow-hidden" aria-label="Filtered leads">
+          ) : <section className="invoice-panel overflow-hidden" aria-label="Filtered leads">
+            <div className="leads-toolbar flex flex-wrap items-center justify-between gap-4 border-b border-[#efede5] p-4 sm:p-5">
+              <label className="sr-only" htmlFor="lead-search">Search leads</label>
+              <input id="lead-search" type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search name, phone, plan…" className="min-h-10 w-full max-w-sm rounded-lg border border-[#e5e1d6] bg-[#fbfaf7] px-4 text-sm outline-none focus:border-[#71836a]" />
+              <div className="flex flex-wrap items-center gap-3">
+                <label htmlFor="lead-status-filter" className="text-sm text-[#77766c]">Status</label>
+                <select id="lead-status-filter" value={status} onChange={(event) => setStatus(event.target.value as LeadStatus | 'all')} className="min-h-10 rounded-lg border border-[#e5e1d6] bg-white px-3 text-sm font-medium text-[#294635] outline-none focus:border-[#71836a]">
+                  <option value="all">All leads</option>
+                  {statuses.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                </select>
+                <button type="button" onClick={() => setReloadKey((key) => key + 1)} className="min-h-10 rounded-lg border border-[#e5e1d6] bg-white px-4 text-sm font-medium text-[#53614a] transition-colors hover:bg-[#f7f6f1]" aria-label="Refresh leads">Refresh</button>
+              </div>
+            </div>
             <div className="flex items-center justify-between gap-4 px-5 py-5 sm:px-6">
               <div>
-                <h2>{statuses.find((item) => item.value === status)?.label}</h2>
-                <p className="mt-1 text-sm text-slate-500">{loading ? 'Updating lead list…' : `${leads.length} ${leads.length === 1 ? 'inquiry' : 'inquiries'}`}</p>
+                <h2 className="text-lg font-semibold text-[#294635]">{status === 'all' ? 'All leads' : statuses.find((item) => item.value === status)?.label}</h2>
+                <p className="mt-1 text-sm text-[#77766c]">{loading ? 'Updating lead list…' : `${visibleLeads.length} ${visibleLeads.length === 1 ? 'inquiry' : 'inquiries'}`}</p>
               </div>
-              <span className="dashboard-list-count">{status.toUpperCase()}</span>
+              <span className="dashboard-list-count">{status === 'all' ? 'ALL LEADS' : status.replaceAll('_', ' ').toUpperCase()}</span>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full min-w-[780px] border-collapse text-left text-sm">
@@ -232,10 +240,10 @@ export function LeadsPage() {
                   {loading && leads.length === 0 && (
                     <tr><td colSpan={7} className="px-5 py-14 text-center text-sm text-[#77766c]">Loading inquiries…</td></tr>
                   )}
-                  {!loading && !error && leads.length === 0 && (
-                    <tr><td colSpan={7} className="px-5 py-14 text-center text-sm text-[#77766c]">No {statuses.find((item) => item.value === status)?.label.toLowerCase()} yet.</td></tr>
+                  {!loading && !error && visibleLeads.length === 0 && (
+                    <tr><td colSpan={7} className="px-5 py-14 text-center text-sm text-[#77766c]">{search ? 'No leads match your search.' : status === 'all' ? 'No leads yet.' : `No ${statuses.find((item) => item.value === status)?.label.toLowerCase()} yet.`}</td></tr>
                   )}
-                  {leads.map((lead) => (
+                  {visibleLeads.map((lead) => (
                     <tr key={lead.id} className="transition-colors hover:bg-[#faf8f1]">
                       <td className="px-5 py-4 text-[#77766c]">{formatDate(lead.date)}</td>
                       <td className="px-5 py-4">
@@ -248,7 +256,7 @@ export function LeadsPage() {
                       <td className="px-5 py-4 text-[#77766c]">{lead.package?.name ?? '—'}</td>
                       <td className="px-5 py-4 text-[#77766c]">{formatDate(lead.plan_date)}</td>
                       <td className="px-5 py-4">
-                        <span className={`inline-flex border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[.1em] ${statusStyles[lead.status]}`}>
+                        <span className={`dashboard-lead-status inline-flex border font-semibold uppercase tracking-[.08em] ${statusStyles[lead.status]}`}>
                           {statuses.find((item) => item.value === lead.status)?.label ?? lead.status}
                         </span>
                       </td>

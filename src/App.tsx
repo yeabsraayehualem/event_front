@@ -4,8 +4,13 @@ import { LoginPage } from './pages/LoginPage'
 import { CompanyProfilePage } from './pages/CompanyProfilePage'
 import { apiBaseUrl } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth-store'
+import { InvoicePage } from './pages/admin/invoices/invoice-page'
+import { InvoiceDetailPage } from './pages/admin/invoices/invoices-detail'
 
-function CRMAccess({ children }: { children: React.ReactNode }) {
+const defaultCrmRoles = ['sales', 'super']
+const invoiceRoles = ['sales', 'finance', 'super']
+
+function CRMAccess({ children, allowedRoles = defaultCrmRoles }: { children: React.ReactNode; allowedRoles?: string[] }) {
   const navigateToLogin = useAuthStore((state) => state.logout)
   const [state, setState] = useState<'checking' | 'allowed' | 'unauthenticated' | 'forbidden'>('checking')
 
@@ -24,11 +29,11 @@ function CRMAccess({ children }: { children: React.ReactNode }) {
           return
         }
         const role = body?.data?.role
-        if (active) setState(role === 'sales' || role === 'super' ? 'allowed' : 'forbidden')
+        if (active) setState(typeof role === 'string' && allowedRoles.includes(role) ? 'allowed' : 'forbidden')
       })
       .catch(() => { if (active) setState('forbidden') })
     return () => { active = false }
-  }, [navigateToLogin])
+  }, [allowedRoles, navigateToLogin])
 
   if (state === 'checking') return <div className="grid min-h-screen place-items-center bg-slate-50 text-sm text-slate-600">Checking your access…</div>
   if (state === 'unauthenticated') return <Navigate to="/login" replace />
@@ -51,6 +56,11 @@ const LeadDetailPage = lazy(() =>
     default: module.LeadDetailPage,
   }))
 )
+const LeadCreatePage = lazy(() =>
+  import('./pages/admin/lead-create').then((module) => ({
+    default: module.LeadCreatePage,
+  }))
+)
 
 export default function App() {
   return (
@@ -58,6 +68,14 @@ export default function App() {
       <Routes>
         <Route path="/" element={<CompanyProfilePage />} />
         <Route path="/login" element={<LoginPage />} />
+        <Route
+          path="/dashboard/leads/new"
+          element={
+            <Suspense fallback={<div className="min-h-screen bg-slate-50" />}>
+              <CRMAccess><LeadCreatePage /></CRMAccess>
+            </Suspense>
+          }
+        />
         <Route
           path="/dashboard/leads/:leadId"
           element={
@@ -82,6 +100,18 @@ export default function App() {
             </Suspense>
           }
         />
+        <Route path="/dashboard/invoices" element={
+          <Suspense fallback={<div className="min-h-screen bg-slate-50" />}>
+            <CRMAccess allowedRoles={invoiceRoles}><InvoicePage /></CRMAccess>
+          </Suspense>
+        } />
+
+        <Route path="/dashboard/invoices/:id" element={
+           <Suspense fallback={<div className="min-h-screen bg-slate-50" />}>
+            <CRMAccess allowedRoles={invoiceRoles}><InvoiceDetailPage /></CRMAccess>
+          </Suspense>
+
+        } />
       </Routes>
     </BrowserRouter>
   )

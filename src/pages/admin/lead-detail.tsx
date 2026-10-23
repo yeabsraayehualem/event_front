@@ -4,6 +4,7 @@ import { SideNav } from '@/components/side-nav'
 import { adminNavigationItems } from '@/components/admin-navigation'
 import { apiBaseUrl } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth-store'
+import { RecordFormView } from '@/components/admin/record-form-view'
 
 type LeadStatus = 'lead' | 'contacted' | 'consultation_scheduled' | 'quotation_sent' | 'negotiation' | 'won' | 'lost' | 'cancelled'
 type Lead = {
@@ -218,106 +219,98 @@ export function LeadDetailPage() {
           {lead && (
             <>
               {lead.status === 'won' && (
-                <section className="mb-6 flex flex-wrap items-center justify-between gap-4 border border-[#d8cba8] bg-[#fffdf7] p-5" aria-label="Won lead event conversion">
+                <section className="mb-6 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-[#e5e1d6] bg-white p-5 shadow-sm" aria-label="Won lead event conversion">
                   <div><h2 className="font-serif text-lg text-[#294635]">This celebration is won</h2><p className="mt-1 text-sm text-[#77766c]">Create its event record to carry the confirmed details forward.</p>{eventCreated && <p className="mt-2 text-sm font-semibold text-[#28513c]" role="status">Event #{eventCreated} is linked to this lead.</p>}</div>
-                  {!eventCreated && <button type="button" onClick={() => setShowEventPrompt(true)} className="min-h-11 bg-[#28513c] px-5 text-xs font-semibold uppercase tracking-[.1em] text-[#fff9e9] hover:bg-[#1d3d2c]">Create event <span className="ml-2 text-[#e1c779]">↗</span></button>}
+                  {!eventCreated && <button type="button" onClick={() => setShowEventPrompt(true)} className="min-h-11 rounded-lg bg-[#28513c] px-5 text-xs font-semibold uppercase tracking-[.1em] text-[#fff9e9] hover:bg-[#1d3d2c]">Create event <span className="ml-2 text-[#e1c779]">↗</span></button>}
                 </section>
               )}
-              <header className="mb-8 flex flex-wrap items-end justify-between gap-4">
-                <div>
-                  <p className="dashboard-date mb-2">Lead workspace · #{lead.id}</p>
-                  <h1 className="dashboard-title text-3xl font-semibold tracking-tight">{lead.customer.name}</h1>
-                  <p className="dashboard-subtitle">Inquiry received {formatDate(lead.date)}</p>
-                </div>
-                <a href={`tel:${lead.customer.phone}`} className="inline-flex min-h-11 items-center border border-[#28513c] bg-[#28513c] px-5 text-xs font-semibold uppercase tracking-[.1em] text-[#fff9e9] hover:bg-[#1d3d2c]">Call customer <span className="ml-3 text-[#e1c779]">↗</span></a>
-              </header>
+              <RecordFormView
+                modelName="Lead"
+                title={lead.customer.name}
+                subtitle={`Inquiry received ${formatDate(lead.date)}`}
+                recordId={lead.id}
+                backHref="/dashboard/leads"
+                backLabel="All leads"
+                status={status}
+                statusOptions={statuses}
+                onStatusChange={(value) => {
+                  const selected = statuses.find((option) => option.value === value)
+                  if (selected) setStatus(selected.value)
+                }}
+                headerFields={[
+                  { name: 'customer_name', label: 'Customer', value: lead.customer.name, readOnly: true },
+                  { name: 'phone', label: 'Phone', value: lead.customer.phone, type: 'tel', readOnly: true },
+                  { name: 'plan', label: 'Event plan', value: lead.plan.name, readOnly: true },
+                  {
+                    name: 'package_id',
+                    label: 'Package',
+                    type: 'select',
+                    value: packageId,
+                    options: [
+                      { value: '', label: 'No package selected' },
+                      ...lead.plan.packages.map((item) => ({ value: String(item.id), label: item.name })),
+                    ],
+                  },
+                  { name: 'plan_date', label: 'Event date', type: 'date', value: planDate, required: true },
+                ]}
+                sections={[
+                  {
+                    title: 'Celebration details',
+                    description: 'The event information shared with the original inquiry.',
+                    fields: [
+                      { name: 'event_type', label: 'Event type', value: lead.event_type, readOnly: true },
+                      { name: 'guest_count', label: 'Estimated guests', value: lead.guest_count, readOnly: true },
+                      { name: 'budget_tier', label: 'Budget range', value: lead.budget_tier, readOnly: true },
+                      { name: 'requirements', label: 'Customer requirements', value: lead.requirements, fullWidth: true, readOnly: true },
+                      { name: 'location', label: 'Venue or location', value: location, placeholder: 'To be confirmed' },
+                    ],
+                  },
+                  {
+                    title: 'Follow-up',
+                    description: 'Keep the sales team up to date on the next step.',
+                    fields: [
+                      { name: 'notes', label: 'Notes', type: 'textarea', value: notes, fullWidth: true, placeholder: 'Add discussion notes or the next step…' },
+                      {
+                        name: 'assigned_sales_person_id',
+                        label: 'Assigned sales person',
+                        type: 'select',
+                        value: lead.can_assign_sales ? salesPersonId : lead.assigned_sales_person ?? 'Unassigned',
+                        readOnly: !lead.can_assign_sales,
+                        options: [
+                          { value: '', label: 'Unassigned' },
+                          ...lead.available_sales_people.map((person) => ({ value: String(person.id), label: person.name })),
+                        ],
+                      },
+                    ],
+                  },
+                ]}
+                onFieldChange={(name, value) => {
+                  if (name === 'package_id') setPackageId(value)
+                  if (name === 'plan_date') setPlanDate(value)
+                  if (name === 'location') setLocation(value)
+                  if (name === 'notes') setNotes(value)
+                  if (name === 'assigned_sales_person_id') setSalesPersonId(value)
+                }}
+                onSubmit={saveLead}
+                saving={saving}
+                saved={saved}
+                submitLabel="Save changes"
+                submittingLabel="Saving changes…"
+              />
 
-              <div className="grid gap-6 xl:grid-cols-[1fr_380px]">
-                <section className="dashboard-card p-5 sm:p-7">
-                  <div className="mb-6">
-                    <h2>Event request</h2>
-                    <p className="mt-1 text-sm text-slate-500">The details shared by the customer</p>
-                  </div>
-                  <dl className="grid gap-5 sm:grid-cols-2">
-                    <div><dt className="mb-1 text-[10px] font-semibold uppercase tracking-[.12em] text-[#898679]">Customer phone</dt><dd className="text-sm font-medium text-[#294635]">{lead.customer.phone}</dd></div>
-                    <div><dt className="mb-1 text-[10px] font-semibold uppercase tracking-[.12em] text-[#898679]">Event date</dt><dd className="text-sm font-medium text-[#294635]">{formatDate(lead.plan_date)}</dd></div>
-                    <div><dt className="mb-1 text-[10px] font-semibold uppercase tracking-[.12em] text-[#898679]">Plan</dt><dd className="text-sm font-medium text-[#294635]">{lead.plan.name}</dd></div>
-                    <div><dt className="mb-1 text-[10px] font-semibold uppercase tracking-[.12em] text-[#898679]">Package</dt><dd className="text-sm font-medium text-[#294635]">{lead.package?.name ?? 'No package selected'}</dd></div>
-                    <div><dt className="mb-1 text-[10px] font-semibold uppercase tracking-[.12em] text-[#898679]">Event type</dt><dd className="text-sm font-medium text-[#294635]">{lead.event_type || 'Not provided'}</dd></div>
-                    <div><dt className="mb-1 text-[10px] font-semibold uppercase tracking-[.12em] text-[#898679]">Estimated guests</dt><dd className="text-sm font-medium text-[#294635]">{lead.guest_count ?? 'Not provided'}</dd></div>
-                    <div><dt className="mb-1 text-[10px] font-semibold uppercase tracking-[.12em] text-[#898679]">Budget range</dt><dd className="text-sm font-medium text-[#294635]">{lead.budget_tier || 'Not provided'}</dd></div>
-                    <div className="sm:col-span-2"><dt className="mb-1 text-[10px] font-semibold uppercase tracking-[.12em] text-[#898679]">Requirements</dt><dd className="whitespace-pre-wrap text-sm font-medium text-[#294635]">{lead.requirements || 'No additional requirements provided'}</dd></div>
-                    <div className="sm:col-span-2"><dt className="mb-1 text-[10px] font-semibold uppercase tracking-[.12em] text-[#898679]">Location</dt><dd className="text-sm font-medium text-[#294635]">{lead.location || 'Not provided'}</dd></div>
-                  </dl>
-                  {lead.package?.contents?.length ? (
-                    <div className="mt-7 border-t border-[#e8e1d2] pt-5">
-                      <h3 className="mb-3 font-serif text-lg text-[#294635]">Package includes</h3>
-                      <ul className="grid gap-3 sm:grid-cols-2">
-                        {lead.package.contents.map((content) => <li key={content.id} className="border-l-2 border-[#d2b267] pl-3"><span className="block text-sm font-medium text-[#294635]">{content.name}</span>{content.description && <span className="mt-1 block text-xs text-[#898679]">{content.description}</span>}</li>)}
-                      </ul>
-                    </div>
-                  ) : null}
-                </section>
-
-                <form onSubmit={saveLead} className="dashboard-card p-5 sm:p-7">
-                  <div className="mb-6">
-                    <h2>Work this lead</h2>
-                    <p className="mt-1 text-sm text-slate-500">Record your follow-up and move it through the pipeline.</p>
-                  </div>
-                  <label className="mb-5 block">
-                    <span className="mb-2 block text-[10px] font-semibold uppercase tracking-[.12em] text-[#898679]">Lead status</span>
-                    <select value={status} onChange={(event) => setStatus(event.target.value as LeadStatus)} className="min-h-11 w-full border border-[#d8cba8] bg-[#fffdf7] px-3 text-sm text-[#294635] outline-none focus:border-[#28513c]">
-                      {statuses.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-                    </select>
-                  </label>
-                  <label className="mb-5 block">
-                    <span className="mb-2 block text-[10px] font-semibold uppercase tracking-[.12em] text-[#898679]">Agreed package</span>
-                    <select value={packageId} onChange={(event) => setPackageId(event.target.value)} className="min-h-11 w-full border border-[#d8cba8] bg-[#fffdf7] px-3 text-sm text-[#294635] outline-none focus:border-[#28513c]">
-                      <option value="">No package selected</option>
-                      {lead.plan.packages.map((option) => <option key={option.id} value={option.id}>{option.name}</option>)}
-                    </select>
-                    <span className="mt-2 block text-xs text-[#898679]">Choose the package agreed with the customer.</span>
-                  </label>
-                  <label className="mb-5 block">
-                    <span className="mb-2 block text-[10px] font-semibold uppercase tracking-[.12em] text-[#898679]">Event date</span>
-                    <input type="date" required value={planDate} onChange={(event) => setPlanDate(event.target.value)} className="min-h-11 w-full border border-[#d8cba8] bg-[#fffdf7] px-3 text-sm text-[#294635] outline-none focus:border-[#28513c]" />
-                  </label>
-                  <label className="mb-5 block">
-                    <span className="mb-2 block text-[10px] font-semibold uppercase tracking-[.12em] text-[#898679]">Event location</span>
-                    <input type="text" maxLength={255} value={location} onChange={(event) => setLocation(event.target.value)} placeholder="Venue or neighborhood" className="min-h-11 w-full border border-[#d8cba8] bg-[#fffdf7] px-3 text-sm text-[#294635] outline-none placeholder:text-[#aaa597] focus:border-[#28513c]" />
-                  </label>
-                  <label className="block">
-                    <span className="mb-2 block text-[10px] font-semibold uppercase tracking-[.12em] text-[#898679]">Follow-up notes</span>
-                    <textarea value={notes} onChange={(event) => setNotes(event.target.value)} rows={7} placeholder="Add the conversation, next steps, or details to remember…" className="w-full resize-y border border-[#d8cba8] bg-[#fffdf7] p-3 text-sm leading-6 text-[#294635] outline-none placeholder:text-[#aaa597] focus:border-[#28513c]" />
-                  </label>
-                  {lead.can_assign_sales ? (
-                    <label className="mt-5 block">
-                      <span className="mb-2 block text-[10px] font-semibold uppercase tracking-[.12em] text-[#898679]">Assign sales person</span>
-                      <select value={salesPersonId} onChange={(event) => setSalesPersonId(event.target.value)} className="min-h-11 w-full border border-[#d8cba8] bg-[#fffdf7] px-3 text-sm text-[#294635] outline-none focus:border-[#28513c]">
-                        <option value="">Unassigned</option>
-                        {lead.available_sales_people.map((person) => <option key={person.id} value={person.id}>{person.name}</option>)}
-                      </select>
-                    </label>
-                  ) : (
-                    <p className="mt-4 text-xs text-[#898679]">Assigned to {lead.assigned_sales_person ?? 'no sales person yet'}</p>
-                  )}
-                  {saved && <p className="mt-4 text-sm font-medium text-[#42674b]" role="status">Lead updates saved.</p>}
-                  <button type="submit" disabled={saving} className="mt-5 min-h-12 w-full bg-[#28513c] px-5 text-xs font-semibold uppercase tracking-[.12em] text-[#fff9e9] transition-colors hover:bg-[#1d3d2c] disabled:cursor-wait disabled:opacity-60">{saving ? 'Saving updates…' : 'Save lead updates'}</button>
-                </form>
-              </div>
             </>
           )}
         </div>
       </main>
       {showEventPrompt && lead?.status === 'won' && !eventCreated && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-[#17251d]/55 p-4" role="presentation">
-          <section role="dialog" aria-modal="true" aria-labelledby="won-event-title" className="w-full max-w-md border border-[#d8cba8] bg-[#fffdf7] p-7 shadow-2xl">
+          <section role="dialog" aria-modal="true" aria-labelledby="won-event-title" className="w-full max-w-md rounded-2xl border border-[#e5e1d6] bg-white p-7 shadow-2xl">
             <p className="text-xs font-semibold uppercase tracking-[.16em] text-[#a64f42]">A new beginning</p>
             <h2 id="won-event-title" className="mt-2 font-serif text-2xl text-[#294635]">Create the event now?</h2>
             <p className="mt-3 text-sm leading-6 text-[#77766c]">The confirmed customer, celebration, date, package, and location will be carried into an event record.</p>
             <div className="mt-6 flex justify-end gap-3">
-              <button type="button" onClick={() => setShowEventPrompt(false)} className="min-h-11 border border-[#d8cba8] px-4 text-sm text-[#53614a]">Later</button>
-              <button type="button" disabled={creatingEvent} onClick={() => void createEventFromLead()} className="min-h-11 bg-[#28513c] px-5 text-sm font-semibold text-white disabled:opacity-60">{creatingEvent ? 'Creating…' : 'Create event'}</button>
+              <button type="button" onClick={() => setShowEventPrompt(false)} className="min-h-11 rounded-lg border border-[#e5e1d6] px-4 text-sm text-[#53614a]">Later</button>
+              <button type="button" disabled={creatingEvent} onClick={() => void createEventFromLead()} className="min-h-11 rounded-lg bg-[#28513c] px-5 text-sm font-semibold text-white disabled:opacity-60">{creatingEvent ? 'Creating…' : 'Create event'}</button>
             </div>
           </section>
         </div>
