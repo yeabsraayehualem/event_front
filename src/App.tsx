@@ -6,6 +6,8 @@ import { apiBaseUrl } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth-store'
 import { InvoicePage } from './pages/admin/invoices/invoice-page'
 import { InvoiceDetailPage } from './pages/admin/invoices/invoices-detail'
+import { Login } from '@hugeicons/core-free-icons'
+import { ProjectList } from './pages/admin/project/list'
 
 const defaultCrmRoles = ['sales', 'super']
 const invoiceRoles = ['sales', 'finance', 'super']
@@ -47,72 +49,42 @@ const DashboardPage = lazy(() =>
   }))
 )
 const LeadsPage = lazy(() =>
-  import('./pages/admin/leads').then((module) => ({
+  import('./pages/admin/lead/leads').then((module) => ({
     default: module.LeadsPage,
   }))
 )
 const LeadDetailPage = lazy(() =>
-  import('./pages/admin/lead-detail').then((module) => ({
+  import('./pages/admin/lead/lead-detail').then((module) => ({
     default: module.LeadDetailPage,
   }))
 )
-const LeadCreatePage = lazy(() =>
-  import('./pages/admin/lead-create').then((module) => ({
-    default: module.LeadCreatePage,
-  }))
-)
+
+const routes = [
+  { path:"/", element: <CompanyProfilePage />},
+  { path:"/login", element: <LoginPage /> },
+
+  {path: "/dashboard/*", element: <DashboardPage />} ,
+
+
+  { path: "/dashboard/leads/:leadId", element: <LeadDetailPage /> },
+  { path: "/dashboard/leads", element: <LeadsPage />},
+  
+  { path: "/dashboard/invoices", element: <InvoicePage /> },
+  { path: "/dashboard/invoices/:id", element: <InvoiceDetailPage />},
+
+  { path: "/dashboard/projects", element: <ProjectList />}
+]
 
 export default function App() {
+
+
   return (
     <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<CompanyProfilePage />} />
-        <Route path="/login" element={<LoginPage />} />
-        <Route
-          path="/dashboard/leads/new"
-          element={
-            <Suspense fallback={<div className="min-h-screen bg-slate-50" />}>
-              <CRMAccess><LeadCreatePage /></CRMAccess>
-            </Suspense>
-          }
-        />
-        <Route
-          path="/dashboard/leads/:leadId"
-          element={
-            <Suspense fallback={<div className="min-h-screen bg-slate-50" />}>
-              <CRMAccess><LeadDetailPage /></CRMAccess>
-            </Suspense>
-          }
-        />
-        <Route
-          path="/dashboard/leads"
-          element={
-            <Suspense fallback={<div className="min-h-screen bg-slate-50" />}>
-              <CRMAccess><LeadsPage /></CRMAccess>
-            </Suspense>
-          }
-        />
-        <Route
-          path="/dashboard/*"
-          element={
-            <Suspense fallback={<div className="min-h-screen bg-slate-50" />}>
-              <CRMAccess><DashboardPage /></CRMAccess>
-            </Suspense>
-          }
-        />
-        <Route path="/dashboard/invoices" element={
-          <Suspense fallback={<div className="min-h-screen bg-slate-50" />}>
-            <CRMAccess allowedRoles={invoiceRoles}><InvoicePage /></CRMAccess>
-          </Suspense>
-        } />
-
-        <Route path="/dashboard/invoices/:id" element={
-           <Suspense fallback={<div className="min-h-screen bg-slate-50" />}>
-            <CRMAccess allowedRoles={invoiceRoles}><InvoiceDetailPage /></CRMAccess>
-          </Suspense>
-
-        } />
-      </Routes>
+    <Routes>
+  {routes.map((route) => (
+    <Route key={route.path} path={route.path} element={route.element} />
+  ))}
+</Routes>
     </BrowserRouter>
   )
 }
