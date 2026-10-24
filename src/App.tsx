@@ -8,6 +8,7 @@ import { InvoicePage } from './pages/admin/invoices/invoice-page'
 import { InvoiceDetailPage } from './pages/admin/invoices/invoices-detail'
 import { Login } from '@hugeicons/core-free-icons'
 import { ProjectList } from './pages/admin/project/list'
+import { ProjectDetail } from './pages/admin/project/detail'
 
 const defaultCrmRoles = ['sales', 'super']
 const invoiceRoles = ['sales', 'finance', 'super']
@@ -72,7 +73,10 @@ const routes = [
   { path: "/dashboard/invoices", element: <InvoicePage /> },
   { path: "/dashboard/invoices/:id", element: <InvoiceDetailPage />},
 
-  { path: "/dashboard/projects", element: <ProjectList />}
+  { path: "/dashboard/projects", element: <ProjectList />},
+{path:"/dashboard/projects/:id",element: <ProjectDetail />}
+
+ 
 ]
 
 export default function App() {

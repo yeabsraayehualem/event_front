@@ -98,7 +98,7 @@ export const ProjectList = ()=>{
 
                       <td className="px-6 py-4">{project.status.toUpperCase()}</td>
  <td className="px-6 py-4 ">
-                        <Link to={`/dashboard/invoices/${project.id}`} className="text-sm font-medium text-[#28513c] hover:underline">View</Link>
+                        <Link to={`/dashboard/projects/${project.id}`} className="text-sm font-medium text-[#28513c] hover:underline">View</Link>
                         </td>
 
                          </tr>
