@@ -1,4 +1,4 @@
-import { BitcoinEllipseFreeIcons, ConstructionIcon, DashboardSquare01Icon, GearsIcon, MarketOrderIcon, MealScanIcon, Task01Icon, UserGroupIcon } from '@hugeicons/core-free-icons'
+import { BitcoinEllipseFreeIcons, DashboardSquare01Icon, GearsIcon, MarketOrderIcon, MealScanIcon, Task01Icon, UserGroupIcon } from '@hugeicons/core-free-icons'
 import type { SideNavItem } from '@/components/side-nav'
 
 export const adminNavigationItems: SideNavItem[] = [
