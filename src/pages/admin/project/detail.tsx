@@ -214,7 +214,7 @@ export function ProjectDetail() {
     return counts
   }, [project])
 
-  const headerFields: HeaderField[] = [
+  const header_fields: HeaderField[] = [
     { name: 'name', label: 'Project name', value: project?.name ?? '', readOnly: true },
     { name: 'event_name', label: 'Event', value: project?.event_name ?? '', readOnly: true },
     { name: 'lead_name', label: 'Project lead', value: fullName(project?.lead), readOnly: true },
@@ -246,7 +246,7 @@ export function ProjectDetail() {
             status={projectStatus}
             statusOptions={projectStatuses.map((status) => ({ value: status, label: humanize(status) }))}
             onStatusChange={(value) => { setProjectStatus(value); void saveProjectStatus(); }}
-            headerFields={headerFields}
+            headerFields={header_fields}
             sections={sections}
             actionSlot={
               <div className="flex flex-wrap gap-3">
@@ -270,10 +270,7 @@ export function ProjectDetail() {
                 <p className="mt-1 text-xl font-semibold text-[#294635]">{project ? humanize(project.status) : '—'}</p>
               </div>
             }
-
-
-
-            headerFields={headerFields}
+           
             sections={sections}
             onFieldChange={(name, value) => {
               if (name === 'name') setProject((current) => current ? { ...current, name: value } : current)
