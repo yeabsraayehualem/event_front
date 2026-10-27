@@ -271,7 +271,9 @@ export function ProjectDetail() {
               </div>
             }
            
-           
+
+
+            
             onFieldChange={(name, value) => {
               if (name === 'name') setProject((current) => current ? { ...current, name: value } : current)
               if (name === 'event_name') setProject((current) => current ? { ...current, event_name: value } : current)
