@@ -5,6 +5,7 @@ import { adminNavigationItems } from '@/components/admin-navigation'
 import { apiBaseUrl } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth-store'
 import { RecordFormView } from '@/components/admin/record-form-view'
+import { formatDualDate } from '@/lib/ethiopian-calendar'
 
 type LeadStatus = 'lead' | 'contacted' | 'consultation_scheduled' | 'quotation_sent' | 'negotiation' | 'won' | 'lost' | 'cancelled'
 type Lead = {
@@ -41,11 +42,7 @@ const statuses: { value: LeadStatus; label: string }[] = [
 ]
 
 function formatDate(value: string) {
-  const [year, month, day] = value.split('-').map(Number)
-  if (!year || !month || !day) return value
-  return new Intl.DateTimeFormat('en-ET', {
-    day: 'numeric', month: 'long', year: 'numeric',
-  }).format(new Date(year, month - 1, day))
+  return formatDualDate(value)
 }
 
 function responseMessage(body: unknown) {

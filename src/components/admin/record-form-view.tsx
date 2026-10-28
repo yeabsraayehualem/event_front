@@ -1,5 +1,7 @@
 import { useState, type FormEvent, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
+import { EthiopianDateInput } from '@/components/ethiopian-date-input'
+import { formatDualDate } from '@/lib/ethiopian-calendar'
 
 export type RecordFormValue = string | number | boolean | null
 export type RecordFormValues = Record<string, RecordFormValue>
@@ -87,9 +89,11 @@ export function RecordFormView({
         <label htmlFor={field.render || readOnly ? undefined : fieldId}>{field.label}{required && <span className="record-form-required" aria-hidden="true"> *</span>}</label>
         <div className="record-form-control">
           {field.render ?? (readOnly || !editable ? (
-            <div className="record-form-value">{displayValue(field.value)}</div>
+            <div className="record-form-value">{field.type === 'date' && field.value ? formatDualDate(String(field.value)) : displayValue(field.value)}</div>
           ) : field.type === 'textarea' ? (
             <textarea id={fieldId} value={String(value)} required={required} placeholder={field.placeholder} onChange={(event) => onFieldChange?.(field.name, event.target.value)} />
+          ) : field.type === 'date' ? (
+            <EthiopianDateInput id={fieldId} value={String(value ?? '')} required={required} onChange={(iso) => onFieldChange?.(field.name, iso)} />
           ) : field.type === 'select' ? (
             <select id={fieldId} value={String(value)} required={required} onChange={(event) => onFieldChange?.(field.name, event.target.value)}>
               {field.options?.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}

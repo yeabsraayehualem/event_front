@@ -9,8 +9,9 @@ export function TraditionSection() {
           <h2>Tradition gives the day<br /><i>its deepest meaning.</i></h2>
           <div className="intro-aside">
             <p>
-              From church ceremony to the family celebration, we plan with respect for
-              Orthodox Tewahedo customs and room for each family&apos;s own way of celebrating.
+              From the elders&apos; visit to the church ceremony and the family feast, we plan with
+              respect for Orthodox Tewahedo customs and leave room for each family&apos;s own way of
+              celebrating. We work with your parish, not around it.
             </p>
             <a className="text-link" href="#contact">Plan with us <span>↗</span></a>
           </div>
@@ -19,12 +20,12 @@ export function TraditionSection() {
           <div>
             <span>01</span>
             <strong>Tradition, honored</strong>
-            <p>We shape the plan around your ceremony, customs, and family wishes.</p>
+            <p>We plan around the church calendar, your parish&apos;s schedule and your family&apos;s customs.</p>
           </div>
           <div>
             <span>02</span>
             <strong>Hospitality, from the heart</strong>
-            <p>Welcoming guests with the warmth and care this occasion deserves.</p>
+            <p>Fasting and non-fasting tables, the coffee ceremony, and a warm welcome for every guest.</p>
           </div>
           <div>
             <span>03</span>
@@ -38,10 +39,10 @@ export function TraditionSection() {
         <div className="ritual-image">
           <img
             src={shimgilinaGathering}
-            alt="Family members gathered in traditional Ethiopian clothing at a family celebration"
+            alt="Two women in white habesha kemis with green tibeb borders sit beneath a glowing ሽምግልና sign and woven wall baskets"
             loading="lazy"
           />
-          <span className="ritual-image-caption">THE FAMILIES, GATHERED</span>
+          <span className="ritual-image-caption">SHIMGILINA · <span lang="am">ሽምግልና</span></span>
           <small className="photo-credit">
             Photo: Elroe Tadele ·{' '}
             <a href="https://commons.wikimedia.org/wiki/File:Shimgilina.jpg">Wikimedia Commons</a>
@@ -53,29 +54,30 @@ export function TraditionSection() {
           <p className="eyebrow">A wedding, held with reverence</p>
           <h2 id="ritual-title">First the blessing.<br /><i>Then the gathering.</i></h2>
           <p className="ritual-intro">
-            In the Ethiopian Orthodox Tewahedo Church, marriage is a sacrament. The service includes
-            the crowning of the bride and groom—a sacred beginning shared with family and community.
+            In the Ethiopian Orthodox Tewahedo Church, marriage is a sacrament. In Teklil, the
+            couple are crowned and often receive Holy Communion together. The journey begins long
+            before the church, with the families.
           </p>
           <div className="ritual-steps">
             <article>
               <span>01</span>
               <div>
-                <h3>The church service</h3>
-                <p>The couple make their vows before God and the congregation. The priest leads the service and blesses their union.</p>
+                <h3>Shimgilina <small lang="am">ሽምግልና</small></h3>
+                <p>Elders visit the bride&apos;s family to ask for her hand and their blessing. We help host the gathering and the families&apos; celebration afterward.</p>
               </div>
             </article>
             <article>
               <span>02</span>
               <div>
-                <h3>The crowning</h3>
-                <p>The crowns mark the couple&apos;s new life together. Families may choose red, white, or richly embroidered traditional dress for the day.</p>
+                <h3>Teklil <small lang="am">ተክሊል</small></h3>
+                <p>The priest blesses and crowns the couple. We confirm the date with your parish, outside the fasting seasons, and keep the day&apos;s plan around the service.</p>
               </div>
             </article>
             <article>
               <span>03</span>
               <div>
-                <h3>Family &amp; celebration</h3>
-                <p>After the church, loved ones gather to eat, celebrate, and welcome the couple. Each family brings its own customs and rhythm.</p>
+                <h3>The celebration and Melse <small lang="am">መልስ</small></h3>
+                <p>Loved ones gather to eat and welcome the couple, and the families meet again at Melse. Each family brings its own customs and rhythm.</p>
               </div>
             </article>
           </div>

@@ -4,6 +4,8 @@ import { adminNavigationItems } from '@/components/admin-navigation'
 import { SideNav } from '@/components/side-nav'
 import { apiBaseUrl } from '@/lib/api'
 import { RecordFormView } from '@/components/admin/record-form-view'
+import { EthiopianDateInput } from '@/components/ethiopian-date-input'
+import { formatDualDate } from '@/lib/ethiopian-calendar'
 
 type User = { id: number; first_name: string; last_name: string }
 type Task = {
@@ -33,10 +35,7 @@ const projectStatuses = ['draft', 'inprogress', 'done'] as const
 
 function formatDate(value: string | null | undefined) {
   if (!value) return 'Not set'
-  const [year, month, day] = value.split('-').map(Number)
-  if (!year || !month || !day) return value
-  return new Intl.DateTimeFormat('en-ET', { day: 'numeric', month: 'short', year: 'numeric' })
-    .format(new Date(year, month - 1, day))
+  return formatDualDate(value)
 }
 
 function fullName(user: User | null | undefined) {
@@ -306,8 +305,8 @@ export function ProjectDetail() {
             </div>
             <form onSubmit={(event) => void addTask(event)} className="mt-5 grid gap-3 rounded-xl border border-[#eeeae0] bg-[#fbfaf7] p-4 sm:grid-cols-2 lg:grid-cols-6" aria-label="Add a project task">
               <div className="sm:col-span-2 lg:col-span-2"><label htmlFor="new-task-name" className="text-xs text-[#858174]">Task name</label><input id="new-task-name" value={newTask.name} onChange={(event) => setNewTask({ ...newTask, name: event.target.value })} required className="mt-1 min-h-10 w-full rounded-lg border border-[#e5e1d6] bg-white px-3 text-sm text-[#32372f]" placeholder="Add a task" /></div>
-              <div><label htmlFor="new-task-start" className="text-xs text-[#858174]">Start date</label><input id="new-task-start" type="date" value={newTask.start_date} onChange={(event) => setNewTask({ ...newTask, start_date: event.target.value })} required className="mt-1 min-h-10 w-full rounded-lg border border-[#e5e1d6] bg-white px-3 text-sm text-[#32372f]" /></div>
-              <div><label htmlFor="new-task-end" className="text-xs text-[#858174]">End date</label><input id="new-task-end" type="date" value={newTask.end_date} onChange={(event) => setNewTask({ ...newTask, end_date: event.target.value })} required className="mt-1 min-h-10 w-full rounded-lg border border-[#e5e1d6] bg-white px-3 text-sm text-[#32372f]" /></div>
+              <div><label htmlFor="new-task-start" className="text-xs text-[#858174]">Start date</label><div className="mt-1"><EthiopianDateInput id="new-task-start" value={newTask.start_date} onChange={(iso) => setNewTask({ ...newTask, start_date: iso })} required max={newTask.end_date || undefined} className="min-h-10 rounded-lg border-[#e5e1d6] bg-white text-sm text-[#32372f]" /></div></div>
+              <div><label htmlFor="new-task-end" className="text-xs text-[#858174]">End date</label><div className="mt-1"><EthiopianDateInput id="new-task-end" value={newTask.end_date} onChange={(iso) => setNewTask({ ...newTask, end_date: iso })} required min={newTask.start_date || undefined} className="min-h-10 rounded-lg border-[#e5e1d6] bg-white text-sm text-[#32372f]" /></div></div>
               <div><label htmlFor="new-task-status" className="text-xs text-[#858174]">Status</label><select id="new-task-status" value={newTask.status} onChange={(event) => setNewTask({ ...newTask, status: event.target.value })} className="mt-1 min-h-10 w-full rounded-lg border border-[#e5e1d6] bg-white px-3 text-sm text-[#32372f]">{taskStatuses.map((status) => <option key={status} value={status}>{humanize(status)}</option>)}</select></div>
               <div className="sm:col-span-2 lg:col-span-2"><label htmlFor="new-task-assignees" className="text-xs text-[#858174]">Assign to</label><select id="new-task-assignees" multiple value={newTask.assignee_ids.map(String)} onChange={(event) => setNewTask({ ...newTask, assignee_ids: Array.from(event.currentTarget.selectedOptions, (option) => Number(option.value)) })} className="mt-1 min-h-10 w-full rounded-lg border border-[#e5e1d6] bg-white px-3 py-2 text-sm text-[#32372f]">{assigneeOptions.map((user) => <option key={user.id} value={user.id}>{fullName(user)}</option>)}</select></div>
               <div className="flex items-end"><button type="submit" disabled={creatingTask} className="invoice-primary-action min-h-10 w-full rounded-lg bg-[#28513c] px-4 text-sm font-medium text-white transition-colors hover:bg-[#1d3d2c] disabled:cursor-wait disabled:opacity-60">{creatingTask ? 'Adding…' : 'Add task'}</button></div>
@@ -327,8 +326,8 @@ export function ProjectDetail() {
                     <tr key={task.id} className="border-t border-[#e5e1d6] align-top">
                       <td className="min-w-48 px-4 py-3"><input aria-label={`Task name: ${task.name}`} value={taskDrafts[task.id]?.name ?? task.name} onChange={(event) => updateTaskDraft(task.id, { name: event.target.value })} className="min-h-10 w-full rounded-lg border border-[#e5e1d6] bg-white px-3 text-sm text-[#32372f]" /></td>
                       <td className="min-w-48 px-4 py-3"><select aria-label={`Assignees for ${task.name}`} multiple value={(taskDrafts[task.id]?.assignee_ids ?? []).map(String)} onChange={(event) => updateTaskDraft(task.id, { assignee_ids: Array.from(event.currentTarget.selectedOptions, (option) => Number(option.value)) })} className="min-h-12 w-full rounded-lg border border-[#e5e1d6] bg-white px-2 py-1 text-sm text-[#32372f]">{assigneeOptions.map((user) => <option key={user.id} value={user.id}>{fullName(user)}</option>)}</select></td>
-                      <td className="min-w-36 px-4 py-3"><input aria-label={`Start date for ${task.name}`} type="date" value={taskDrafts[task.id]?.start_date ?? task.start_date} onChange={(event) => updateTaskDraft(task.id, { start_date: event.target.value })} className="min-h-10 w-full rounded-lg border border-[#e5e1d6] bg-white px-2 text-sm text-[#32372f]" /></td>
-                      <td className="min-w-36 px-4 py-3"><input aria-label={`End date for ${task.name}`} type="date" value={taskDrafts[task.id]?.end_date ?? task.end_date} onChange={(event) => updateTaskDraft(task.id, { end_date: event.target.value })} className="min-h-10 w-full rounded-lg border border-[#e5e1d6] bg-white px-2 text-sm text-[#32372f]" /></td>
+                      <td className="min-w-36 px-4 py-3"><EthiopianDateInput aria-label={`Start date for ${task.name}`} value={taskDrafts[task.id]?.start_date ?? task.start_date} onChange={(iso) => updateTaskDraft(task.id, { start_date: iso })} showChurchDays={false} className="min-h-10 rounded-lg border-[#e5e1d6] bg-white px-2 text-sm text-[#32372f]" /></td>
+                      <td className="min-w-36 px-4 py-3"><EthiopianDateInput aria-label={`End date for ${task.name}`} value={taskDrafts[task.id]?.end_date ?? task.end_date} onChange={(iso) => updateTaskDraft(task.id, { end_date: iso })} showChurchDays={false} className="min-h-10 rounded-lg border-[#e5e1d6] bg-white px-2 text-sm text-[#32372f]" /></td>
                       <td className="min-w-36 px-4 py-3"><select aria-label={`Status for ${task.name}`} value={taskDrafts[task.id]?.status ?? task.status} onChange={(event) => updateTaskDraft(task.id, { status: event.target.value })} className="min-h-10 w-full rounded-lg border border-[#e5e1d6] bg-white px-3 text-sm text-[#32372f]">{taskStatuses.map((status) => <option key={status} value={status}>{humanize(status)}</option>)}</select></td>
                       <td className="px-4 py-3 text-right"><button type="button" onClick={() => void saveTask(task.id)} disabled={savingTaskId === task.id} className="min-h-10 rounded-lg border border-[#d8cba8] bg-[#f7f1e2] px-4 text-sm font-medium text-[#53614a] transition-colors hover:bg-[#f1ead7] disabled:cursor-wait disabled:opacity-60">{savingTaskId === task.id ? 'Saving…' : 'Save'}</button></td>
                     </tr>

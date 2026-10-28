@@ -3,6 +3,7 @@ import { SideNav } from "@/components/side-nav"
 import { useState,useEffect } from "react"
 import { Link } from 'react-router-dom'
 import { apiBaseUrl } from '@/lib/api'
+import { formatDualDate } from '@/lib/ethiopian-calendar'
     
 type InvoiceListItem = {
     id: string
@@ -84,7 +85,7 @@ export const InvoicePage = () =>{
                       <td className="px-6 py-4">{invoice.customer}</td>
                       <td className="px-6 py-4">{invoice.plan}</td>
                       <td className="px-6 py-4">{invoice.package}</td>
-                      <td className="px-6 py-4">{new Date(invoice.due_date).toLocaleDateString()}</td>
+                      <td className="px-6 py-4">{formatDualDate(invoice.due_date)}</td>
                       <td className="px-6 py-4 ">{ invoice.status === 'paid' ? <span className="text-green-600 font-semibold">Paid</span> : <span className="text-red-600 font-semibold">Unpaid</span>}</td>
                       <td className="px-6 py-4 ">
                         <Link to={`/dashboard/invoices/${invoice.id}`} className="text-sm font-medium text-[#28513c] hover:underline">View</Link>

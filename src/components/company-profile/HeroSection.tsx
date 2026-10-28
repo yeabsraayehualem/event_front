@@ -4,26 +4,27 @@ export function HeroSection() {
   return (
     <section id="top" className="hero-section">
       <div className="hero-copy">
-        <p className="eyebrow"><span /> በእምነት ሥር · ETHIOPIAN ORTHODOX TEWAHEDO</p>
+        <p className="eyebrow"><span /> <em className="eyebrow-am" lang="am" style={{ fontStyle: 'normal' }}>የኢትዮጵያ ኦርቶዶክስ ተዋሕዶ</em> · ETHIOPIAN ORTHODOX TEWAHEDO</p>
         <h1>A day crowned<br /><i>in faith &amp; joy.</i></h1>
         <p className="hero-description">
-          A sacred beginning, dressed in the colors of home. We bring together the church,
-          the families, and every detail of the celebration.
+          From Shimgilina to the crowning, from Kiristina to Tezkar, we plan around your
+          parish, the church calendar and your family&apos;s customs, so you can be present for
+          what matters.
         </p>
         <div className="hero-actions">
           <a className="button button-light" href="#experiences">Explore our celebrations <span>↓</span></a>
           <a className="text-link" href="#contact">Plan your wedding <span>↗</span></a>
         </div>
-        <div className="hero-note"><span className="note-rule" /> ጋብቻ · ጥምቀት · ሽምግልና</div>
+        <div className="hero-note"><span className="note-rule" /> <span lang="am">ሰርግ · ክርስትና · ተዝካር · ማኅበር</span></div>
       </div>
       <div className="hero-image-wrap hero-photo">
         <img
           src={weddingProcession}
-          alt="An Ethiopian Orthodox wedding procession, with the couple in red and gold ceremonial clothing among guests dressed in white"
+          alt="A bride and groom wearing the red and gold crowns and capes of the Teklil ceremony, surrounded by guests in white netela"
         />
         <div className="image-caption">
-          <span>THE SACRAMENT OF CROWNING</span>
-          <span>በረከት · ቤተሰብ · ደስታ</span>
+          <span>TEKLIL · THE SACRAMENT OF CROWNING</span>
+          <span lang="am">በረከት · ቤተሰብ · ደስታ</span>
         </div>
         <small className="photo-credit">
           Photo: ZeevRo ·{' '}

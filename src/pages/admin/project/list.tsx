@@ -3,6 +3,7 @@ import { SideNav } from "@/components/side-nav"
 import { apiBaseUrl } from "@/lib/api"
 import { useEffect, useState } from "react"
 import { Link } from "react-router-dom"
+import { formatDualDate } from '@/lib/ethiopian-calendar'
 
 
 type ProjectItems = {
@@ -92,9 +93,9 @@ export const ProjectList = ()=>{
                     <td className="px-6 py-4">{project.event_name}</td>
                       <td className="px-6 py-4">{project.lead_name}</td>
 
-                      <td className="px-6 py-4">{new Date(project.start_date).toLocaleDateString()}</td>
+                      <td className="px-6 py-4">{formatDualDate(project.start_date)}</td>
 
-                      <td className="px-6 py-4">{new Date(project.end_date).toLocaleDateString()}</td>
+                      <td className="px-6 py-4">{formatDualDate(project.end_date)}</td>
 
                       <td className="px-6 py-4">{project.status.toUpperCase()}</td>
  <td className="px-6 py-4 ">

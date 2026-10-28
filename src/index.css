@@ -17,6 +17,7 @@
   --line: #e3ddce;
   --gold: #bd9a57;
   --red: #a6463c;
+  --cross-mask: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2048%2048%22%20fill%3D%22none%22%20stroke%3D%22%23000%22%20stroke-width%3D%222.2%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M24%209v30M9%2024h30%22/%3E%3Ccircle%20cx%3D%2224%22%20cy%3D%226%22%20r%3D%223%22/%3E%3Ccircle%20cx%3D%2224%22%20cy%3D%2242%22%20r%3D%223%22/%3E%3Ccircle%20cx%3D%226%22%20cy%3D%2224%22%20r%3D%223%22/%3E%3Ccircle%20cx%3D%2242%22%20cy%3D%2224%22%20r%3D%223%22/%3E%3Crect%20x%3D%2217%22%20y%3D%2217%22%20width%3D%2214%22%20height%3D%2214%22%20transform%3D%22rotate%2845%2024%2024%29%22/%3E%3Cpath%20d%3D%22M19.5%2019.5l9%209M28.5%2019.5l-9%209%22%20stroke-width%3D%221.4%22/%3E%3Cpath%20d%3D%22M14%2019.5l-3-3M34%2019.5l3-3M14%2028.5l-3%203M34%2028.5l3%203%22%20stroke-width%3D%221.6%22/%3E%3C/svg%3E");
 }
 
 * { box-sizing: border-box; }
@@ -158,7 +159,7 @@ h1, h2, h3, p { margin-top: 0; }
 .header-cta { color: #244a37; border-bottom-color: #bd9a57; }
 .hero-section { position: relative; max-width: none; min-height: 690px; padding: 74px max(7%, calc((100vw - 1200px) / 2)) 85px; grid-template-columns: .92fr 1.08fr; gap: 7%; overflow: hidden; background: #204533; color: #f8f5ec; }
 .hero-section::before { content: ""; position: absolute; left: 0; top: 0; width: 100%; height: 7px; background: linear-gradient(90deg, #a6463c 0 20%, #d2b267 20% 48%, #28513c 48% 76%, #a6463c 76%); }
-.hero-section::after { content: "✥"; position: absolute; right: -130px; bottom: -300px; color: rgba(232,215,174,.055); font-size: 700px; line-height: 1; pointer-events: none; }
+.hero-section::after { content: ""; background: currentColor; -webkit-mask: var(--cross-mask) center / contain no-repeat; mask: var(--cross-mask) center / contain no-repeat; position: absolute; right: -130px; bottom: -300px; width: 620px; height: 620px; color: rgba(232,215,174,.055); pointer-events: none; }
 .hero-copy { position: relative; z-index: 1; padding: 0; }
 .hero-copy .eyebrow { color: #e1ca91; font-size: 9px; line-height: 1.8; }
 .hero-copy .eyebrow span { flex: 0 0 7px; background: #bd9a57; }
@@ -194,7 +195,7 @@ h1, h2, h3, p { margin-top: 0; }
 .intro-aside { border-left: 1px solid #c5ac73; padding-left: 24px; }
 .values-row { gap: 16px; }
 .values-row > div { position: relative; min-height: 178px; padding: 22px 20px; border: 1px solid #d9d2c1; background: rgba(250,248,241,.6); }
-.values-row > div::after { content: "✥"; position: absolute; top: 18px; right: 19px; color: #b79651; font-size: 15px; }
+.values-row > div::after { content: ""; background: currentColor; -webkit-mask: var(--cross-mask) center / contain no-repeat; mask: var(--cross-mask) center / contain no-repeat; position: absolute; top: 18px; right: 19px; width: 16px; height: 16px; color: #b79651; }
 .values-row div > span { margin-bottom: 20px; color: #9d4338; }
 .values-row strong { font-size: 20px; }
 .experience-section { max-width: none; padding-block: 110px 120px; }
@@ -429,7 +430,7 @@ h1, h2, h3, p { margin-top: 0; }
   line-height: 1;
   pointer-events: none;
 }
-.contact-section--success::before { content: "✥"; top: -100px; left: -70px; font-size: 360px; transform: rotate(-18deg); }
+.contact-section--success::before { content: ""; background: currentColor; -webkit-mask: var(--cross-mask) center / contain no-repeat; mask: var(--cross-mask) center / contain no-repeat; top: -100px; left: -70px; width: 320px; height: 320px; }
 .contact-section--success::after { content: "✦"; right: 5%; bottom: -110px; font-size: 300px; }
 .success-card {
   position: relative;
@@ -996,3 +997,84 @@ h1, h2, h3, p { margin-top: 0; }
   .record-form-field--wide:has(textarea) { grid-column: auto; grid-template-columns: 1fr; gap: 6px; }
   .record-form-content-list { grid-template-columns: 1fr; }
 }
+
+/* ── Ethiopic script ─────────────────────────────────────────────── */
+:lang(am), [lang="am"] { font-family: "Noto Serif Ethiopic", "Noto Sans Ethiopic", "Nyala", serif; letter-spacing: normal; }
+.ethiopian-cross { display: block; flex: none; }
+.brand-mark .ethiopian-cross { color: var(--olive); }
+.woven-placeholder .ethiopian-cross { opacity: .85; }
+.celebration-strip span small { margin-left: 6px; font-size: 12px; letter-spacing: 0; opacity: .8; }
+.celebration-strip i { display: inline-grid; place-items: center; }
+.ritual-steps h3 small { margin-left: 6px; color: #a87358; font-size: 15px; font-weight: 400; }
+
+/* ── Church year ─────────────────────────────────────────────────── */
+.church-year-section { position: relative; max-width: 1440px; margin: 0 auto; padding: 86px 7.2% 72px; }
+.church-year-band { position: absolute; top: 0; left: 0; width: 100%; height: 14px; }
+.church-year-section .section-heading p strong { color: var(--olive); font-weight: 600; }
+.church-year-list { list-style: none; margin: 40px 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; }
+.church-year-item { padding: 20px 20px 18px; border: 1px solid var(--line); border-top: 3px solid var(--gold); background: #fffdf7; }
+.church-year-item--fast { border-top-color: var(--olive); background: #f3f1e8; }
+.church-year-kind { display: block; color: var(--muted); font-size: 9px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; }
+.church-year-item h3 { margin: 10px 0 8px; color: #244735; font-size: 24px; font-weight: 400; line-height: 1.15; }
+.church-year-item h3 small { display: block; margin-top: 3px; color: var(--ink); font-family: Georgia, serif; font-size: 15px; font-style: italic; }
+.church-year-dates { margin: 0 0 10px; color: var(--ink); font-size: 13px; font-weight: 600; line-height: 1.5; }
+.church-year-dates small { display: block; color: var(--muted); font-size: 12px; font-weight: 400; }
+.church-year-note { margin: 0; color: #66675f; font-size: 12.5px; line-height: 1.6; }
+.church-year-footnote { margin: 22px 0 0; color: var(--muted); font-size: 12px; }
+
+/* ── Inquiry date guidance ───────────────────────────────────────── */
+.date-guidance { display: grid; gap: 8px; padding: 12px 14px; border: 1px solid var(--line); background: #fbf8ef; }
+.date-guidance-et { margin: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 7px; color: var(--olive); font-size: 14px; font-weight: 600; }
+.date-guidance-et .ethiopian-cross { color: var(--gold); }
+.date-guidance-et span:last-child { color: var(--muted); font-size: 12px; font-weight: 400; }
+.date-guidance-note { margin: 0; padding-left: 10px; border-left: 2px solid var(--gold); color: #55564f; font-size: 12.5px; line-height: 1.6; }
+.date-guidance-note--warn { border-left-color: var(--red); color: #7b3029; }
+
+@media (max-width: 640px) {
+  .church-year-section { padding: 64px 16px 56px; }
+  .church-year-list { grid-template-columns: 1fr; }
+}
+
+.brand-mark .ethiopian-cross { transform: rotate(-45deg); }
+.hero-copy .eyebrow .eyebrow-am { width: auto; height: auto; border-radius: 0; background: none; font-size: 11px; letter-spacing: 0; text-transform: none; }
+
+/* ── Ethiopian date picker ───────────────────────────────────────── */
+.etdp { position: relative; width: 100%; }
+.etdp-trigger { display: flex; width: 100%; min-height: 40px; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 12px; border: 1px solid #e3e1d9; background: #fffefa; color: var(--ink); font-size: 13px; text-align: left; cursor: pointer; }
+.etdp-trigger:disabled { cursor: not-allowed; opacity: .6; }
+.etdp-trigger:focus-visible { outline: 3px solid rgba(189,154,87,.48); outline-offset: 2px; }
+.etdp-value { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; }
+.etdp-value [lang="am"] { font-size: 14px; font-weight: 600; color: #244735; }
+.etdp-value small, .etdp-placeholder { color: #8a897f; font-size: 11.5px; }
+.etdp-icon { flex: none; color: #8a8a6f; }
+.etdp-native { position: absolute; bottom: 0; left: 50%; width: 1px; height: 1px; padding: 0; border: 0; opacity: 0; pointer-events: none; }
+.etdp-pop { position: absolute; z-index: 60; top: calc(100% + 6px); left: 0; width: 300px; max-width: calc(100vw - 32px); padding: 12px; border: 1px solid #e3ddce; border-radius: 12px; background: #fffdf7; box-shadow: 0 18px 40px rgba(40,38,30,.16); color: var(--ink); }
+.etdp-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+.etdp-title { display: grid; text-align: center; }
+.etdp-title strong { color: #244735; font-size: 16px; }
+.etdp-title span { color: #8a897f; font-size: 11px; }
+.etdp-nav { width: 32px; height: 32px; border: 1px solid #e8e1d2; border-radius: 8px; background: #fff; color: #244735; font-size: 18px; line-height: 1; cursor: pointer; }
+.etdp-nav:hover { background: #f4efe2; }
+.etdp-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }
+.etdp-dow { padding: 4px 0; color: #8a897f; font-size: 11px; text-align: center; }
+.etdp-day { position: relative; display: grid; place-items: center; aspect-ratio: 1; padding: 2px 0; border: 1px solid transparent; border-radius: 8px; background: transparent; color: var(--ink); cursor: pointer; line-height: 1.05; }
+.etdp-day span { font-size: 13px; font-weight: 600; }
+.etdp-day small { color: #a3a297; font-size: 9px; }
+.etdp-day:hover:not(:disabled) { background: #f4efe2; }
+.etdp-day:disabled { color: #c9c7bd; cursor: not-allowed; }
+.etdp-day.is-fast { background: #eef1ea; }
+.etdp-day.is-feast::after { content: ""; position: absolute; top: 4px; right: 4px; width: 5px; height: 5px; border-radius: 50%; background: #bd9a57; }
+.etdp-day.is-today { border-color: #bd9a57; }
+.etdp-day.is-selected, .etdp-day.is-selected:hover { background: #28513c; color: #fff; }
+.etdp-day.is-selected small { color: #d9e2d5; }
+.etdp-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 10px; padding-top: 8px; border-top: 1px solid #eee8da; font-size: 11px; color: #8a897f; }
+.etdp-legend { display: inline-flex; align-items: center; gap: 5px; }
+.etdp-legend i { display: inline-block; width: 9px; height: 9px; border-radius: 3px; }
+.etdp-legend i.is-feast { border-radius: 50%; background: #bd9a57; }
+.etdp-legend i.is-fast { margin-left: 6px; background: #dfe6da; }
+.etdp-actions { display: inline-flex; gap: 6px; }
+.etdp-actions button { padding: 5px 9px; border: 1px solid #e8e1d2; border-radius: 7px; background: #fff; color: #244735; font-size: 11px; font-weight: 600; cursor: pointer; }
+.form-grid .etdp { margin-top: 7px; }
+.profile-page .form-grid .etdp-trigger { min-height: 44px; border-radius: 9px; }
+.profile-page .form-grid .etdp-trigger:focus { border-color: #bd9a57; box-shadow: 0 0 0 2px rgba(189,154,87,.16); }
+.record-form-control .etdp-trigger { border-radius: var(--workspace-radius-sm, 9px); }

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { type Plan } from './types'
+import { EthiopianCross } from './EthiopianCross'
 import { PackageModal } from './PackageModal'
 
 interface PlanGridProps {
@@ -33,14 +34,14 @@ export function PlanGrid({ plans, onEnquire }: PlanGridProps) {
                 />
               ) : (
                 <div className="woven-placeholder" aria-hidden="true">
-                  <span>✥</span>
+                  <EthiopianCross size={56} />
                 </div>
               )}
               <span className="plan-number">0{index + 1}</span>
             </div>
 
             <div className="plan-content">
-              <p className="eyebrow">Aster celebration</p>
+              <p className="eyebrow">Bahran celebration</p>
               <h3>{plan.name}</h3>
               {plan.description && (
                 <p className="plan-description">{plan.description}</p>
@@ -50,7 +51,7 @@ export function PlanGrid({ plans, onEnquire }: PlanGridProps) {
                 {plan.packages.length > 0 ? (
                   <>
                     <p className="plan-pkg-count">
-                      <span className="plan-pkg-cross" aria-hidden="true">✥</span>
+                      <span className="plan-pkg-cross" aria-hidden="true"><EthiopianCross size={13} /></span>
                       {plan.packages.length} package{plan.packages.length !== 1 ? 's' : ''} available
                     </p>
                     <button

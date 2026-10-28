@@ -4,6 +4,7 @@ import { SideNav } from '@/components/side-nav'
 import { adminNavigationItems } from '@/components/admin-navigation'
 import { apiBaseUrl } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth-store'
+import { formatDualDate } from '@/lib/ethiopian-calendar'
 
 type LeadStatus = 'lead' | 'contacted' | 'consultation_scheduled' | 'quotation_sent' | 'negotiation' | 'won' | 'lost' | 'cancelled'
 type Lead = {
@@ -39,11 +40,7 @@ const statusStyles: Record<LeadStatus, string> = {
 }
 
 function formatDate(value: string) {
-  const [year, month, day] = value.split('-').map(Number)
-  if (!year || !month || !day) return value
-  return new Intl.DateTimeFormat('en-ET', {
-    day: 'numeric', month: 'short', year: 'numeric',
-  }).format(new Date(year, month - 1, day))
+  return formatDualDate(value)
 }
 
 export function LeadsPage() {

@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { type Package, type Plan, currency } from './types'
+import { EthiopianCross } from './EthiopianCross'
 
 interface PackageModalProps {
   plan: Plan
@@ -39,7 +40,7 @@ export function PackageModal({ plan, onClose, onEnquire }: PackageModalProps) {
       <div className="pkg-modal" ref={dialogRef}>
         <div className="pkg-modal-header">
           <div className="pkg-modal-title-group">
-            <p className="pkg-modal-eyebrow">Aster celebration</p>
+            <p className="pkg-modal-eyebrow">Bahran celebration</p>
             <h2 className="pkg-modal-title">{plan.name}</h2>
             {plan.description && (
               <p className="pkg-modal-subtitle">{plan.description}</p>
@@ -68,7 +69,7 @@ export function PackageModal({ plan, onClose, onEnquire }: PackageModalProps) {
                 <article className="pkg-tile" key={pkg.id}>
                   <div className="pkg-tile-accent" aria-hidden="true">
                     <span className="pkg-tile-num">0{idx + 1}</span>
-                    <span className="pkg-tile-cross">✥</span>
+                    <span className="pkg-tile-cross"><EthiopianCross size={18} /></span>
                   </div>
                   <div className="pkg-tile-body">
                     <div className="pkg-tile-top">

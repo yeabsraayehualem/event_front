@@ -3,6 +3,8 @@ import { Link, useParams } from 'react-router-dom'
 import { adminNavigationItems } from '@/components/admin-navigation'
 import { SideNav } from '@/components/side-nav'
 import { apiBaseUrl } from '@/lib/api'
+import { EthiopianDateInput } from '@/components/ethiopian-date-input'
+import { formatDualDate } from '@/lib/ethiopian-calendar'
 
 type InvoiceLine = {
   id: number
@@ -38,10 +40,7 @@ type EditableLine = { key: string; contentId: number | ''; amount: string; taxPr
 
 function formatDate(value: string | null) {
   if (!value) return 'Not set'
-  const [year, month, day] = value.split('-').map(Number)
-  if (!year || !month || !day) return value
-  return new Intl.DateTimeFormat('en-ET', { day: 'numeric', month: 'short', year: 'numeric' })
-    .format(new Date(year, month - 1, day))
+  return formatDualDate(value)
 }
 
 function formatAmount(value: string | number) {
@@ -230,7 +229,7 @@ export function InvoiceDetailPage() {
                 <div><label htmlFor="invoice-plan" className="text-xs text-[#858174]">Plan</label><input id="invoice-plan" value={invoice.plan_name || ''} readOnly className="mt-1 block w-full rounded-lg border border-[#eeeae0] bg-[#faf9f6] px-3 py-2 text-sm text-[#32372f]" /></div>
                 <div><label htmlFor="invoice-package" className="text-xs text-[#858174]">Package</label><input id="invoice-package" value={invoice.package_name || '—'} readOnly className="mt-1 block w-full rounded-lg border border-[#eeeae0] bg-[#faf9f6] px-3 py-2 text-sm text-[#32372f]" /></div>
                 <div><label htmlFor="invoice-issued" className="text-xs text-[#858174]">Issue date</label><input id="invoice-issued" value={formatDate(invoice.date)} readOnly className="mt-1 block w-full rounded-lg border border-[#eeeae0] bg-[#faf9f6] px-3 py-2 text-sm text-[#32372f]" /></div>
-                <div><label htmlFor="invoice-due-date" className="text-xs text-[#858174]">Due date</label><input id="invoice-due-date" type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} className="mt-1 block w-full rounded-lg border border-[#e5e1d6] bg-white px-3 py-2 text-sm text-[#32372f] focus:border-[#71836a] focus:outline-none focus:ring-2 focus:ring-[#71836a]/15" /></div>
+                <div><label htmlFor="invoice-due-date" className="text-xs text-[#858174]">Due date</label><div className="mt-1"><EthiopianDateInput id="invoice-due-date" value={dueDate} onChange={setDueDate} showChurchDays={false} className="rounded-lg border-[#e5e1d6] bg-white text-sm text-[#32372f]" /></div></div>
                 <div><label htmlFor="invoice-status" className="text-xs text-[#858174]">Payment status</label><select id="invoice-status" value={invoice.status} onChange={(event) => setInvoice({ ...invoice, status: event.target.value as Invoice['status'] })} className="mt-1 block w-full rounded-lg border border-[#e5e1d6] bg-white px-3 py-2 text-sm text-[#32372f] focus:border-[#71836a] focus:outline-none focus:ring-2 focus:ring-[#71836a]/15"><option value="unpaid">Unpaid</option><option value="paid">Paid</option></select></div>
               </section>
 

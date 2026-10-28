@@ -1,5 +1,65 @@
-import { useMemo, type FormEvent } from 'react'
+import { useMemo, useState, type FormEvent } from 'react'
 import { type Plan } from './types'
+import { EthiopianCross } from './EthiopianCross'
+import { guidanceFor, parseIsoDate, todayUtc } from '@/lib/ethiopian-calendar'
+import { EthiopianDateInput } from '@/components/ethiopian-date-input'
+
+const EVENT_TYPES = [
+  { value: 'Church wedding (Teklil)', label: 'Church wedding · ተክሊል' },
+  { value: 'Wedding (Kal Kidan or civil)', label: 'Wedding · ቃል ኪዳን / civil' },
+  { value: 'Shimgilina', label: 'Shimgilina · ሽምግልና' },
+  { value: 'Telosh or Melse', label: 'Telosh or Melse · ቴሎስ / መልስ' },
+  { value: 'Kiristina (christening)', label: 'Kiristina · ክርስትና' },
+  { value: 'Tezkar (memorial)', label: 'Tezkar · ተዝካር' },
+  { value: 'Mahber or Senbete gathering', label: 'Mahber or Senbete · ማኅበር' },
+  { value: 'Holiday gathering', label: 'Holiday gathering · Meskel, Genna, Timket, Fasika' },
+  { value: 'Church event or fundraiser', label: 'Church event or fundraiser' },
+  { value: 'Family celebration', label: 'Family celebration' },
+  { value: 'Other', label: 'Other' },
+]
+
+function DateGuidanceNote({ date, eventType }: { date: string; eventType: string }) {
+  const day = parseIsoDate(date)
+  if (!day) return null
+  const g = guidanceFor(day)
+  const isTeklil = eventType.startsWith('Church wedding')
+  const isWedding = isTeklil || eventType.startsWith('Wedding')
+  const fast = g.periods.find((p) => p.kind === 'fast')
+  const feast = g.periods.find((p) => p.kind === 'feast')
+  const notes: { tone: 'warn' | 'info'; text: string }[] = []
+
+  if (fast && isTeklil) {
+    notes.push({ tone: 'warn', text: `This date falls in ${fast.name} (${fast.am}). Church weddings are not held during the fast, so we suggest choosing another date or speaking with your parish.` })
+  } else if (fast && isWedding) {
+    notes.push({ tone: 'warn', text: `This date falls in ${fast.name} (${fast.am}). Many families avoid wedding celebrations during the fast; we can plan a fasting (yetsom) menu if you go ahead.` })
+  } else if (fast) {
+    notes.push({ tone: 'info', text: `This date falls in ${fast.name} (${fast.am}). We will plan a fasting (yetsom) menu for guests who keep the fast.` })
+  } else if (g.weeklyFast) {
+    notes.push({ tone: 'info', text: 'This is a Wednesday or Friday fast day. We will include fasting (yetsom) dishes for guests who keep it.' })
+  }
+  if (feast) {
+    notes.push({ tone: 'info', text: `${feast.name} (${feast.am}) falls on this date. Venues, crews and church schedules are busy around feasts, so it helps to book early.` })
+  }
+  if (eventType.startsWith('Kiristina')) {
+    notes.push({ tone: 'info', text: 'Christening is traditionally on the 40th day for a boy and the 80th day for a girl. We will confirm the day with your church.' })
+  }
+  if (eventType.startsWith('Tezkar')) {
+    notes.push({ tone: 'info', text: 'We will keep the gathering quiet and respectful, with no entertainment unless your family asks for it.' })
+  }
+
+  return (
+    <div className="date-guidance" aria-live="polite">
+      <p className="date-guidance-et">
+        <EthiopianCross size={14} />
+        <span lang="am">{g.ethiopianAm}</span>
+        <span>· {g.ethiopian}</span>
+      </p>
+      {notes.map((n) => (
+        <p key={n.text} className={`date-guidance-note date-guidance-note--${n.tone}`}>{n.text}</p>
+      ))}
+    </div>
+  )
+}
 
 interface InquiryFormProps {
   plans: Plan[]
@@ -30,6 +90,15 @@ export function InquiryForm({
   )
 
   const availablePackages = activePlan?.packages ?? []
+  const [eventDate, setEventDate] = useState('')
+  const [eventType, setEventType] = useState('')
+  const minDate = useMemo(() => todayUtc().toISOString().slice(0, 10), [])
+
+  function startOver() {
+    setEventDate('')
+    setEventType('')
+    onReset()
+  }
 
   function handlePlanChange(e: React.ChangeEvent<HTMLSelectElement>) {
     setSelectedPlan(e.target.value)
@@ -62,7 +131,7 @@ export function InquiryForm({
           </div>
           <div className="success-actions">
             <a className="success-reset" href="#experiences">Explore celebrations <span>↗</span></a>
-            <button className="success-secondary" type="button" onClick={onReset}>Send another inquiry</button>
+            <button className="success-secondary" type="button" onClick={startOver}>Send another inquiry</button>
           </div>
         </div>
       </section>
@@ -76,13 +145,13 @@ export function InquiryForm({
         <p className="eyebrow">Let&apos;s begin together</p>
         <h2>Tell us about<br /><i>your celebration.</i></h2>
         <p>
-          Share the date, the occasion, and what your family has in mind. Our team will be
-          in touch to plan the next steps with you.
+          Share the date, the occasion, and what your family has in mind. We show the date in
+          the Ethiopian calendar and let you know if it falls in a fast or on a feast day.
         </p>
         <div className="contact-detail">
-          <span className="contact-icon">✥</span>
+          <span className="contact-icon"><EthiopianCross size={22} /></span>
           <div>
-            <small>Planning Orthodox weddings, christenings, and family milestones</small>
+            <small>Weddings, Kiristina, Tezkar, Mahber and holiday gatherings</small>
             <a href="#contact-form">Share your celebration details ↗</a>
           </div>
         </div>
@@ -117,22 +186,11 @@ export function InquiryForm({
             </select>
           </label>
 
-          <label>
-            Event type
-            <select name="event_type" required defaultValue="">
-              <option value="" disabled>Select an occasion</option>
-              <option>Orthodox wedding</option>
-              <option>Engagement</option>
-              <option>Christening</option>
-              <option>Family celebration</option>
-              <option>Other</option>
-            </select>
-          </label>
 
           <label>
             Package
             {availablePackages.length > 0 && (
-              <span className="pkg-count-hint">✥ {availablePackages.length} available</span>
+              <span className="pkg-count-hint">{availablePackages.length} available</span>
             )}
             <select
               name="package"
@@ -149,19 +207,62 @@ export function InquiryForm({
             </select>
           </label>
 
+
+          <label>
+            Event type
+            <select name="event_type" required value={eventType} onChange={(e) => setEventType(e.target.value)}>
+              <option value="" disabled>Select an occasion</option>
+              {EVENT_TYPES.map((t) => (
+                <option key={t.value} value={t.value}>{t.label}</option>
+              ))}
+            </select>
+          </label>
+
+
           <label>
             Event date
-            <input name="plan_date" type="date" required />
+            <EthiopianDateInput name="plan_date" required value={eventDate} onChange={setEventDate} min={minDate} placeholder="Choose Date" />
           </label>
+
+          {eventDate && (
+            <div className="form-wide">
+              <DateGuidanceNote date={eventDate} eventType={eventType} />
+            </div>
+          )}
+
           <label>
             Event location
             <input name="location" placeholder="City or venue" required />
           </label>
+
           <label>
             Estimated guests <span className="optional">OPTIONAL</span>
             <input name="guest_count" type="number" min="1" placeholder="e.g. 150" />
           </label>
+
           <label>
+            Menu <span className="optional">OPTIONAL</span>
+            <select name="menu" defaultValue="">
+              <option value="">Help us decide</option>
+              <option>Fasting (yetsom) only</option>
+              <option>Fasting and non-fasting</option>
+              <option>Non-fasting (yefisik)</option>
+              <option>No catering needed</option>
+            </select>
+          </label>
+
+          <label>
+            Meat for guests <span className="optional">OPTIONAL</span>
+            <select name="meat" defaultValue="">
+              <option value="">Not sure yet</option>
+              <option>Christian slaughter</option>
+              <option>Halal</option>
+              <option>Both, prepared separately</option>
+              <option>No meat</option>
+            </select>
+          </label>
+
+          <label className="form-wide">
             Budget range <span className="optional">OPTIONAL</span>
             <select name="budget_tier" defaultValue="">
               <option value="">We are still deciding</option>
@@ -173,7 +274,7 @@ export function InquiryForm({
           </label>
           <label className="form-wide">
             Requirements or traditions to include <span className="optional">OPTIONAL</span>
-            <textarea name="requirements" rows={3} placeholder="Share important details, customs, or accessibility needs." />
+            <textarea name="requirements" rows={3} placeholder="Your parish, family customs, coffee ceremony, accessibility needs…" />
           </label>
           <label className="form-wide">
             A little more about your plans <span className="optional">OPTIONAL</span>

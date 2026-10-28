@@ -18,6 +18,8 @@ import { SideNav } from '@/components/side-nav'
 import { adminNavigationItems } from '@/components/admin-navigation'
 import { apiBaseUrl } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth-store'
+import { EthiopianDateInput } from '@/components/ethiopian-date-input'
+import { formatDualDate, formatEthiopian, todayUtc } from '@/lib/ethiopian-calendar'
 
 type Summary = {
   total_leads: number
@@ -68,16 +70,13 @@ const statusColors: Record<string, string> = {
 }
 
 function formatEventDate(value: string) {
-  const [year, month, day] = value.split('-').map(Number)
-  if (!year || !month || !day) return value
-  return new Intl.DateTimeFormat('en-ET', { day: 'numeric', month: 'short', year: 'numeric' })
-    .format(new Date(year, month - 1, day))
+  return formatDualDate(value)
 }
 
 function formatToday() {
-  return new Intl.DateTimeFormat('en-ET', {
-    weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
-  }).format(new Date())
+  const today = todayUtc()
+  const weekday = new Intl.DateTimeFormat('en-GB', { weekday: 'long', timeZone: 'UTC' }).format(today)
+  return `${weekday}, ${formatEthiopian(today)}`
 }
 
 export function DashboardPage() {
@@ -165,8 +164,8 @@ export function DashboardPage() {
           </header>
 
           <section className="mb-6 flex flex-wrap items-end gap-3 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm" aria-label="Filter dashboard by inquiry date">
-            <label className="grid gap-1 text-xs font-medium text-slate-600">From date<input type="date" value={startDate} max={endDate || undefined} onChange={(event) => setStartDate(event.target.value)} className="min-h-10 border border-slate-200 bg-white px-3 text-sm text-slate-800" /></label>
-            <label className="grid gap-1 text-xs font-medium text-slate-600">Through date<input type="date" value={endDate} min={startDate || undefined} onChange={(event) => setEndDate(event.target.value)} className="min-h-10 border border-slate-200 bg-white px-3 text-sm text-slate-800" /></label>
+            <label className="grid gap-1 text-xs font-medium text-slate-600">From date<EthiopianDateInput aria-label="From date" value={startDate} max={endDate || undefined} onChange={setStartDate} showChurchDays={false} placeholder="Any date" className="min-h-10 border-slate-200 bg-white text-sm text-slate-800" /></label>
+            <label className="grid gap-1 text-xs font-medium text-slate-600">Through date<EthiopianDateInput aria-label="Through date" value={endDate} min={startDate || undefined} onChange={setEndDate} showChurchDays={false} placeholder="Any date" className="min-h-10 border-slate-200 bg-white text-sm text-slate-800" /></label>
             {(startDate || endDate) && <button type="button" onClick={() => { setStartDate(''); setEndDate('') }} className="min-h-10 px-3 text-sm font-medium text-indigo-700 hover:bg-indigo-50">Clear dates</button>}
           </section>
 

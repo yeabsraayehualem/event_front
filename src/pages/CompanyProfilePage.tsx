@@ -3,6 +3,8 @@ import { HeroSection } from '../components/company-profile/HeroSection'
 import { TraditionSection } from '../components/company-profile/TraditionSection'
 import { PlanGrid } from '../components/company-profile/PlanGrid'
 import { InquiryForm } from '../components/company-profile/InquiryForm'
+import { ChurchYearSection } from '../components/company-profile/ChurchYearSection'
+import { EthiopianCross } from '../components/company-profile/EthiopianCross'
 import { type Plan } from '../components/company-profile/types'
 import { apiBaseUrl } from '@/lib/api'
 
@@ -66,6 +68,14 @@ export function CompanyProfilePage() {
     const formElement = event.currentTarget
     setNotice(null)
     const form = new FormData(formElement)
+    // The API has no dedicated catering fields yet, so the preferences travel with the requirements.
+    const preferences = [
+      form.get('menu') ? `Menu: ${form.get('menu')}` : '',
+      form.get('meat') ? `Meat: ${form.get('meat')}` : '',
+    ].filter(Boolean)
+    const requirementsText = [String(form.get('requirements') ?? '').trim(), ...preferences]
+      .filter(Boolean)
+      .join('\n')
     const payload = {
       name: String(form.get('name') ?? '').trim(),
       phone: String(form.get('phone') ?? '').trim(),
@@ -78,7 +88,7 @@ export function CompanyProfilePage() {
       event_type: String(form.get('event_type') ?? '').trim(),
       guest_count: form.get('guest_count') ? Number(form.get('guest_count')) : null,
       budget_tier: String(form.get('budget_tier') ?? '').trim(),
-      requirements: String(form.get('requirements') ?? '').trim(),
+      requirements: requirementsText,
     }
     setSubmitting(true)
     try {
@@ -119,12 +129,13 @@ export function CompanyProfilePage() {
       {/* ── Header ─────────────────────────────────────────────── */}
       <header className="site-header">
         <a className="brand" href="#top" aria-label="Bahran Events home">
-          <span className="brand-mark"><span className="brand-cross">✥</span></span>
+          <span className="brand-mark"><EthiopianCross size={22} /></span>
           <span className="brand-name">Bahran <em>EVENTS</em></span>
         </a>
         <nav className="site-nav" aria-label="Main navigation">
           <a href="#story">Our tradition</a>
           <a href="#experiences">Celebrations</a>
+          <a href="#church-year">Church year</a>
           <a href="#contact">Start planning</a>
         </nav>
         <a className="header-cta" href="#contact">Let&apos;s plan <span>↗</span></a>
@@ -141,7 +152,7 @@ export function CompanyProfilePage() {
         <section id="experiences" className="experience-section">
           <div className="section-heading">
             <div>
-              <p className="eyebrow">Weddings · christenings · family milestones</p>
+              <p className="eyebrow">Weddings · Kiristina · Tezkar · Mahber · holidays</p>
               <h2>Gatherings with meaning.<br /><i>Celebrations with joy.</i></h2>
             </div>
             <p>
@@ -170,19 +181,23 @@ export function CompanyProfilePage() {
           )}
         </section>
 
+        {/* ── Church year ────────────────────────────────────────── */}
+        <ChurchYearSection />
+
         {/* ── Celebration strip ──────────────────────────────────── */}
         <section className="celebration-strip" aria-label="Celebration traditions">
-          <span>ORTHODOX WEDDINGS</span><i>✥</i>
-          <span>CHRISTENINGS</span><i>✥</i>
-          <span>SHIMGELNA</span><i>✥</i>
-          <span>FAMILY MILESTONES</span>
+          <span>TEKLIL <small lang="am">ተክሊል</small></span><i><EthiopianCross size={16} /></i>
+          <span>SHIMGILINA <small lang="am">ሽምግልና</small></span><i><EthiopianCross size={16} /></i>
+          <span>KIRISTINA <small lang="am">ክርስትና</small></span><i><EthiopianCross size={16} /></i>
+          <span>TEZKAR <small lang="am">ተዝካር</small></span><i><EthiopianCross size={16} /></i>
+          <span>MAHBER <small lang="am">ማኅበር</small></span>
         </section>
 
         {/* ── Quote ──────────────────────────────────────────────── */}
         <section className="quote-band">
           <span className="quote-mark">"</span>
           <blockquote>Honor the blessing.<br /><i>Celebrate the joy.</i></blockquote>
-          <span className="quote-credit">FAITH · FAMILY · TOGETHERNESS</span>
+          <span className="quote-credit">FAITH · FAMILY · TOGETHERNESS · <span lang="am">እምነት · ቤተሰብ · አንድነት</span></span>
         </section>
 
         {/* ── Contact / Inquiry ──────────────────────────────────── */}
@@ -202,7 +217,7 @@ export function CompanyProfilePage() {
       {/* ── Footer ─────────────────────────────────────────────── */}
       <footer className="site-footer">
         <a className="brand footer-brand" href="#top">
-          <span className="brand-mark"><span className="brand-cross">✥</span></span>
+          <span className="brand-mark"><EthiopianCross size={22} /></span>
           <span className="brand-name">BAHRAN <em>EVENTS</em></span>
         </a>
         <p>Faith · family · celebration.</p>
