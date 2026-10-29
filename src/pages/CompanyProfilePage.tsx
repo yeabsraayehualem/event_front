@@ -1,10 +1,15 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { HeroSection } from '../components/company-profile/HeroSection'
 import { TraditionSection } from '../components/company-profile/TraditionSection'
-import { PlanGrid } from '../components/company-profile/PlanGrid'
+import { PlanShowcase } from '../components/company-profile/PlanShowcase'
 import { InquiryForm } from '../components/company-profile/InquiryForm'
 import { ChurchYearSection } from '../components/company-profile/ChurchYearSection'
 import { EthiopianCross } from '../components/company-profile/EthiopianCross'
+import { SiteHeader } from '../components/company-profile/SiteHeader'
+import { HowItWorks } from '../components/company-profile/HowItWorks'
+import { Showcase } from '../components/company-profile/Showcase'
+import { SiteFooter } from '../components/company-profile/SiteFooter'
+import '../styles/website.css'
 import { type Plan } from '../components/company-profile/types'
 import { apiBaseUrl } from '@/lib/api'
 
@@ -127,19 +132,7 @@ export function CompanyProfilePage() {
   return (
     <div className="profile-page">
       {/* ── Header ─────────────────────────────────────────────── */}
-      <header className="site-header">
-        <a className="brand" href="#top" aria-label="Bahran Events home">
-          <span className="brand-mark"><EthiopianCross size={22} /></span>
-          <span className="brand-name">Bahran <em>EVENTS</em></span>
-        </a>
-        <nav className="site-nav" aria-label="Main navigation">
-          <a href="#story">Our tradition</a>
-          <a href="#experiences">Celebrations</a>
-          <a href="#church-year">Church year</a>
-          <a href="#contact">Start planning</a>
-        </nav>
-        <a className="header-cta" href="#contact">Let&apos;s plan <span>↗</span></a>
-      </header>
+      <SiteHeader />
 
       <main>
         {/* ── Hero ───────────────────────────────────────────────── */}
@@ -148,16 +141,19 @@ export function CompanyProfilePage() {
         {/* ── Tradition + Ritual ─────────────────────────────────── */}
         <TraditionSection />
 
+        {/* ── How it works ───────────────────────────────────────── */}
+        <HowItWorks />
+
         {/* ── Experiences / Plans ────────────────────────────────── */}
         <section id="experiences" className="experience-section">
           <div className="section-heading">
             <div>
-              <p className="eyebrow">Weddings · Kiristina · Tezkar · Mahber · holidays</p>
+              <p className="eyebrow">Our celebrations · <span lang="am">በዓላት</span></p>
               <h2>Gatherings with meaning.<br /><i>Celebrations with joy.</i></h2>
             </div>
             <p>
-              Choose a plan to begin. We&apos;ll work with your family to tailor the details
-              and honor the traditions that matter to you.
+              Every plan comes with packages you can compare, with clear prices. Choose one to
+              begin and we&apos;ll tailor it with your family and your parish.
             </p>
           </div>
 
@@ -177,9 +173,12 @@ export function CompanyProfilePage() {
           )}
 
           {!loading && plans.length > 0 && (
-            <PlanGrid plans={plans} onEnquire={startInquiry} />
+            <PlanShowcase plans={plans} onEnquire={startInquiry} />
           )}
         </section>
+
+        {/* ── Gallery and testimonials (published from the admin) ─ */}
+        <Showcase />
 
         {/* ── Church year ────────────────────────────────────────── */}
         <ChurchYearSection />
@@ -215,15 +214,7 @@ export function CompanyProfilePage() {
       </main>
 
       {/* ── Footer ─────────────────────────────────────────────── */}
-      <footer className="site-footer">
-        <a className="brand footer-brand" href="#top">
-          <span className="brand-mark"><EthiopianCross size={22} /></span>
-          <span className="brand-name">BAHRAN <em>EVENTS</em></span>
-        </a>
-        <p>Faith · family · celebration.</p>
-        <a className="staff-login" href="/login">Staff login ↗</a>
-        <span>© 2026 Bahran Events · Addis Ababa</span>
-      </footer>
+      <SiteFooter />
     </div>
   )
 }

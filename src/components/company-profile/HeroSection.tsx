@@ -12,9 +12,14 @@ export function HeroSection() {
           what matters.
         </p>
         <div className="hero-actions">
-          <a className="button button-light" href="#experiences">Explore our celebrations <span>↓</span></a>
-          <a className="text-link" href="#contact">Plan your wedding <span>↗</span></a>
+          <a className="button button-light" href="#contact">Plan your celebration <span>↗</span></a>
+          <a className="text-link" href="#experiences">See plans &amp; packages <span>↓</span></a>
         </div>
+        <ul className="web-hero-promises" aria-label="What we promise">
+          <li><strong>Church calendar first</strong><span>Dates checked against every fast and feast</span></li>
+          <li><strong>Yetsom &amp; yefisik tables</strong><span>Fasting and non-fasting menus, side by side</span></li>
+          <li><strong>One coordinator</strong><span>From Shimgilina to Melse, one familiar face</span></li>
+        </ul>
         <div className="hero-note"><span className="note-rule" /> <span lang="am">ሰርግ · ክርስትና · ተዝካር · ማኅበር</span></div>
       </div>
       <div className="hero-image-wrap hero-photo">

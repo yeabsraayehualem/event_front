@@ -151,10 +151,12 @@ export function InquiryForm({
 
       <form id="contact-form" className="inquiry-form" onSubmit={onSubmit}>
         <div className="form-heading">
-          <span>01 — 04</span>
-          <p>Let&apos;s begin with the basics.</p>
+          <span>Four short parts · about two minutes</span>
+          <p>Tell us about your celebration.</p>
         </div>
-        <div className="form-grid">
+        <fieldset className="web-form-step">
+          <legend><span>01</span>About you<small>So we know who to call back</small></legend>
+          <div className="form-grid">
           <label>
             Your name
             <input name="name" autoComplete="name" placeholder="Full name" required />
@@ -168,6 +170,12 @@ export function InquiryForm({
             <input name="email" type="email" autoComplete="email" placeholder="you@example.com" required />
           </label>
 
+          </div>
+        </fieldset>
+
+        <fieldset className="web-form-step">
+          <legend><span>02</span>Your celebration<small>Plan, occasion, date and place</small></legend>
+          <div className="form-grid">
           <label>
             Celebration
             <select name="plan" value={selectedPlan} onChange={handlePlanChange} required>
@@ -235,6 +243,12 @@ export function InquiryForm({
             <input name="guest_count" type="number" min="1" placeholder="e.g. 150" />
           </label>
 
+          </div>
+        </fieldset>
+
+        <fieldset className="web-form-step">
+          <legend><span>03</span>Hospitality<small>Optional — helps us prepare a quote</small></legend>
+          <div className="form-grid">
           <label>
             Menu <span className="optional">OPTIONAL</span>
             <select name="menu" defaultValue="">
@@ -264,6 +278,12 @@ export function InquiryForm({
               {BUDGET_TIERS.map((tier) => <option key={tier}>{tier}</option>)}
             </select>
           </label>
+          </div>
+        </fieldset>
+
+        <fieldset className="web-form-step">
+          <legend><span>04</span>Anything else<small>Your parish, customs and wishes</small></legend>
+          <div className="form-grid">
           <label className="form-wide">
             Requirements or traditions to include <span className="optional">OPTIONAL</span>
             <textarea name="requirements" rows={3} placeholder="Your parish, family customs, coffee ceremony, accessibility needs…" />
@@ -272,7 +292,8 @@ export function InquiryForm({
             A little more about your plans <span className="optional">OPTIONAL</span>
             <textarea name="notes" rows={3} placeholder="What are you celebrating? What should we know?" />
           </label>
-        </div>
+          </div>
+        </fieldset>
 
         {notice?.kind === 'error' && (
           <p className="form-notice error" role="alert">{notice.text}</p>
