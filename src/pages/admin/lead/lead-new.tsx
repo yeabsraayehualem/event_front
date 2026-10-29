@@ -6,19 +6,19 @@ import { RecordFormView } from '@/components/admin/record-form-view'
 import { apiBaseUrl } from '@/lib/api'
 import { fetchCsrfToken } from '@/lib/csrf'
 import { getErrorMessage } from '@/lib/api-errors'
-import { BUDGET_TIERS, EVENT_TYPES } from '@/lib/event-options'
+import { BUDGET_TIERS } from '@/lib/event-options'
 
-type PlanOption = { id: number; name: string; packages: { id: number; name: string }[] }
+type PlanOption = { id: number; name: string; packages: { id: number; name: string }[]; event_types: { id: number; name: string }[] }
 type FormOptions = { plans: PlanOption[]; sales_people: { id: number; name: string }[]; can_assign_sales: boolean }
 
 const emptyLead = {
   customer_name: '', phone: '', email: '', plan: '', package_id: '', plan_date: '', location: '',
-  event_type: '', guest_count: '', budget_tier: '', requirements: '', notes: '', assigned_sales_person_id: '',
+  event_type_id: '', guest_count: '', budget_tier: '', requirements: '', notes: '', assigned_sales_person_id: '',
 }
 type LeadDraft = typeof emptyLead
 
 const fieldLabels: Record<string, string> = {
-  customer_name: 'Customer', plan: 'Event plan', package_id: 'Package', plan_date: 'Event date',
+  customer_name: 'Customer', plan: 'Event plan', package_id: 'Package', plan_date: 'Event date', event_type_id: 'Event type',
   guest_count: 'Guests', assigned_sales_person_id: 'Sales person',
 }
 
@@ -50,8 +50,8 @@ export function LeadNewPage() {
     setDraft((current) => ({
       ...current,
       [name]: value,
-      // A package belongs to one plan, so changing the plan clears it.
-      ...(name === 'plan' ? { package_id: '' } : {}),
+      // Packages and event types belong to one plan, so changing the plan clears them.
+      ...(name === 'plan' ? { package_id: '', event_type_id: '' } : {}),
     }))
   }
 
@@ -73,7 +73,7 @@ export function LeadNewPage() {
           package_id: draft.package_id ? Number(draft.package_id) : null,
           plan_date: draft.plan_date,
           location: draft.location,
-          event_type: draft.event_type,
+          event_type_id: draft.event_type_id ? Number(draft.event_type_id) : null,
           guest_count: draft.guest_count ? Number(draft.guest_count) : null,
           budget_tier: draft.budget_tier,
           requirements: draft.requirements,
@@ -121,6 +121,12 @@ export function LeadNewPage() {
                   options: [{ value: '', label: 'Choose a plan' }, ...options.plans.map((item) => ({ value: String(item.id), label: item.name }))],
                 },
                 {
+                  name: 'event_type_id', label: 'Event type', type: 'select', value: draft.event_type_id,
+                  readOnly: !plan?.event_types.length,
+                  placeholder: plan ? 'This plan has no event types yet' : 'Choose a plan first',
+                  options: [{ value: '', label: 'Select an occasion' }, ...(plan?.event_types ?? []).map((item) => ({ value: String(item.id), label: item.name }))],
+                },
+                {
                   name: 'package_id', label: 'Package', type: 'select', value: draft.package_id,
                   readOnly: !plan, placeholder: 'Choose a plan first',
                   options: [{ value: '', label: 'No package yet' }, ...(plan?.packages ?? []).map((item) => ({ value: String(item.id), label: item.name }))],
@@ -138,10 +144,6 @@ export function LeadNewPage() {
                     {
                       title: 'The occasion',
                       fields: [
-                        {
-                          name: 'event_type', label: 'Event type', type: 'select', value: draft.event_type,
-                          options: [{ value: '', label: 'Select an occasion' }, ...EVENT_TYPES],
-                        },
                         { name: 'guest_count', label: 'Estimated guests', type: 'number', value: draft.guest_count, placeholder: 'e.g. 250' },
                         {
                           name: 'budget_tier', label: 'Budget range', type: 'select', value: draft.budget_tier,

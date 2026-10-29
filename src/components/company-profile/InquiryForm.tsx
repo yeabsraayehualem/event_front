@@ -3,15 +3,17 @@ import { type Plan } from './types'
 import { EthiopianCross } from './EthiopianCross'
 import { guidanceFor, parseIsoDate, todayUtc } from '@/lib/ethiopian-calendar'
 import { EthiopianDateInput } from '@/components/ethiopian-date-input'
-import { BUDGET_TIERS, EVENT_TYPES } from '@/lib/event-options'
+import { BUDGET_TIERS } from '@/lib/event-options'
 
 
 function DateGuidanceNote({ date, eventType }: { date: string; eventType: string }) {
   const day = parseIsoDate(date)
   if (!day) return null
   const g = guidanceFor(day)
-  const isTeklil = eventType.startsWith('Church wedding')
-  const isWedding = isTeklil || eventType.startsWith('Wedding')
+  // Event type names are managed per plan in the catalog, so match them loosely.
+  const occasion = eventType.toLowerCase()
+  const isTeklil = occasion.includes('teklil') || occasion.includes('church wedding')
+  const isWedding = isTeklil || occasion.includes('wedding')
   const fast = g.periods.find((p) => p.kind === 'fast')
   const feast = g.periods.find((p) => p.kind === 'feast')
   const notes: { tone: 'warn' | 'info'; text: string }[] = []
@@ -28,10 +30,10 @@ function DateGuidanceNote({ date, eventType }: { date: string; eventType: string
   if (feast) {
     notes.push({ tone: 'info', text: `${feast.name} (${feast.am}) falls on this date. Venues, crews and church schedules are busy around feasts, so it helps to book early.` })
   }
-  if (eventType.startsWith('Kiristina')) {
+  if (occasion.includes('kiristina') || occasion.includes('christening')) {
     notes.push({ tone: 'info', text: 'Christening is traditionally on the 40th day for a boy and the 80th day for a girl. We will confirm the day with your church.' })
   }
-  if (eventType.startsWith('Tezkar')) {
+  if (occasion.includes('tezkar') || occasion.includes('memorial')) {
     notes.push({ tone: 'info', text: 'We will keep the gathering quiet and respectful, with no entertainment unless your family asks for it.' })
   }
 
@@ -78,6 +80,7 @@ export function InquiryForm({
   )
 
   const availablePackages = activePlan?.packages ?? []
+  const availableEventTypes = activePlan?.event_types ?? []
   const [eventDate, setEventDate] = useState('')
   const [eventType, setEventType] = useState('')
   const minDate = useMemo(() => todayUtc().toISOString().slice(0, 10), [])
@@ -91,6 +94,7 @@ export function InquiryForm({
   function handlePlanChange(e: React.ChangeEvent<HTMLSelectElement>) {
     setSelectedPlan(e.target.value)
     setSelectedPackage('')
+    setEventType('')
   }
 
   // ── Success card ─────────────────────────────────────────────
@@ -196,15 +200,18 @@ export function InquiryForm({
           </label>
 
 
-          <label>
-            Event type
-            <select name="event_type" required value={eventType} onChange={(e) => setEventType(e.target.value)}>
-              <option value="" disabled>Select an occasion</option>
-              {EVENT_TYPES.map((t) => (
-                <option key={t.value} value={t.value}>{t.label}</option>
-              ))}
-            </select>
-          </label>
+          {/* Each plan lists its own occasions; a plan without any skips the question. */}
+          {availableEventTypes.length > 0 && (
+            <label>
+              Event type
+              <select name="event_type" required value={eventType} onChange={(e) => setEventType(e.target.value)}>
+                <option value="" disabled>Select an occasion</option>
+                {availableEventTypes.map((t) => (
+                  <option key={t.id} value={String(t.id)}>{t.name}</option>
+                ))}
+              </select>
+            </label>
+          )}
 
 
           <label>
@@ -214,7 +221,7 @@ export function InquiryForm({
 
           {eventDate && (
             <div className="form-wide">
-              <DateGuidanceNote date={eventDate} eventType={eventType} />
+              <DateGuidanceNote date={eventDate} eventType={availableEventTypes.find((t) => String(t.id) === eventType)?.name ?? ''} />
             </div>
           )}
 

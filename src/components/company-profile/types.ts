@@ -18,6 +18,7 @@ export type Plan = {
   description?: string
   image?: string | null
   packages: Package[]
+  event_types?: { id: number; name: string }[]
 }
 
 export function currency(value: string) {

@@ -12,7 +12,7 @@ type LeadStatus = 'lead' | 'contacted' | 'consultation_scheduled' | 'quotation_s
 type Lead = {
   id: number
   customer: { id: number; name: string; phone: string }
-  plan: { id: number; name: string; packages: { id: number; name: string }[] }
+  plan: { id: number; name: string; packages: { id: number; name: string }[]; event_types: { id: number; name: string }[] }
   package: { id: number; name: string; contents?: { id: number; name: string; description: string }[] } | null
   date: string
   plan_date: string
@@ -20,7 +20,8 @@ type Lead = {
   status: LeadStatus
   status_label: string
   notes: string
-  event_type: string
+  event_type: string | null
+  event_type_id: number | null
   guest_count: number | null
   budget_tier: string
   requirements: string
@@ -66,6 +67,7 @@ export function LeadDetailPage() {
   const [planDate, setPlanDate] = useState('')
   const [location, setLocation] = useState('')
   const [packageId, setPackageId] = useState('')
+  const [eventTypeId, setEventTypeId] = useState('')
   const [salesPersonId, setSalesPersonId] = useState('')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -80,6 +82,7 @@ export function LeadDetailPage() {
     setPlanDate(data.plan_date)
     setLocation(data.location ?? '')
     setPackageId(data.package ? String(data.package.id) : '')
+    setEventTypeId(data.event_type_id ? String(data.event_type_id) : '')
     setSalesPersonId(data.assigned_sales_person_id ? String(data.assigned_sales_person_id) : '')
   }, [])
 
@@ -137,6 +140,7 @@ export function LeadDetailPage() {
           plan_date: planDate,
           location,
           package_id: packageId ? Number(packageId) : null,
+          event_type_id: eventTypeId ? Number(eventTypeId) : null,
           ...(lead?.can_assign_sales
             ? { assigned_sales_person_id: salesPersonId ? Number(salesPersonId) : null }
             : {}),
@@ -168,6 +172,7 @@ export function LeadDetailPage() {
     || planDate !== lead?.plan_date
     || location !== (lead?.location ?? '')
     || packageId !== (lead?.package ? String(lead.package.id) : '')
+    || eventTypeId !== (lead?.event_type_id ? String(lead.event_type_id) : '')
     || (Boolean(lead?.can_assign_sales) && salesPersonId !== (lead?.assigned_sales_person_id ? String(lead.assigned_sales_person_id) : ''))
   )
 
@@ -281,6 +286,12 @@ export function LeadDetailPage() {
                 { name: 'plan_date', label: 'Event date', type: 'date', value: planDate, required: true },
                 { name: 'plan', label: 'Event plan', value: lead.plan.name, readOnly: true },
                 {
+                  name: 'event_type_id', label: 'Event type', type: 'select', value: eventTypeId,
+                  readOnly: !lead.plan.event_types.length,
+                  placeholder: 'This plan has no event types yet',
+                  options: [{ value: '', label: 'Select an occasion' }, ...lead.plan.event_types.map((item) => ({ value: String(item.id), label: item.name }))],
+                },
+                {
                   name: 'assigned_sales_person_id',
                   label: 'Sales person',
                   type: 'select',
@@ -313,7 +324,6 @@ export function LeadDetailPage() {
                     {
                       title: 'From the inquiry',
                       fields: [
-                        { name: 'event_type', label: 'Event type', value: lead.event_type, readOnly: true },
                         { name: 'guest_count', label: 'Estimated guests', value: lead.guest_count, readOnly: true },
                         { name: 'budget_tier', label: 'Budget range', value: lead.budget_tier, readOnly: true },
                       ],
@@ -353,6 +363,7 @@ export function LeadDetailPage() {
               onFieldChange={(name, value) => {
                 setSaved(false)
                 if (name === 'package_id') setPackageId(value)
+                if (name === 'event_type_id') setEventTypeId(value)
                 if (name === 'plan_date') setPlanDate(value)
                 if (name === 'location') setLocation(value)
                 if (name === 'assigned_sales_person_id') setSalesPersonId(value)

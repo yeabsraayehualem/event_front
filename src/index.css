@@ -987,6 +987,7 @@ h1, h2, h3, p { margin-top: 0; }
 
 
 /* ── Odoo-style form view: control panel, status bar, sheet, groups, notebook ── */
+.bahran-dashboard,
 .o-form-view {
   --o-brand: #28513c;
   --o-brand-hover: #1d3d2c;
@@ -1378,3 +1379,32 @@ a.dash-row-title:hover { color: var(--d-brand); }
   .dash-card--flush .dash-card-head { padding: 0 14px; }
 }
 @media (max-width: 340px) { .dash-tiles { grid-template-columns: minmax(0, 1fr); } }
+
+/* ── Catalog ── */
+.cat-toolbar { margin-bottom: 18px; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; }
+.bahran-dashboard-main input.cat-search { width: min(100%, 360px); min-height: 38px; padding: 0 12px; border: 1px solid #e5e1d6; background: #fff; color: #2b3029; font-size: 14px; }
+.cat-muted { color: #77766c; font-size: 12.5px; }
+.cat-tags { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.cat-tags .o-tag { padding-right: 9px; }
+.cat-kanban { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; }
+.cat-card { overflow: hidden; display: flex; flex-direction: column; border: 1px solid #e5e1d6; border-radius: 14px; background: #fff; color: inherit; transition: border-color .16s ease, box-shadow .16s ease, transform .16s ease; }
+.cat-card:hover { border-color: #c9d3c6; box-shadow: 0 10px 26px rgba(38, 56, 44, .09); transform: translateY(-1px); }
+.cat-card-image { height: 132px; display: grid; place-items: center; overflow: hidden; background: linear-gradient(135deg, #edf0e7, #f6f1e3); }
+.cat-card-image img { width: 100%; height: 100%; object-fit: cover; }
+.cat-card-image span { color: #28513c; font-size: 40px; font-weight: 700; opacity: .5; }
+.cat-card-body { padding: 14px 16px 16px; display: grid; gap: 10px; }
+.cat-card-body > strong { color: #2b3029; font-size: 16px; font-weight: 700; }
+.cat-card-meta { display: flex; gap: 14px; color: #77766c; font-size: 12.5px; }
+.cat-card .o-tag { background: #edf0e7; color: #28513c; }
+.cat-row-link { color: #28513c; font-weight: 650; }
+.cat-row-link:hover { text-decoration: underline; text-underline-offset: 3px; }
+.cat-list { min-width: 520px; }
+.cat-services .cat-list { min-width: 640px; }
+.cat-services { background: #fff; }
+.cat-image-field { display: flex; align-items: center; gap: 14px; }
+.cat-image-preview { width: 112px; height: 76px; flex: none; display: grid; place-items: center; overflow: hidden; border: 1px solid #efede5; border-radius: 10px; background: #faf9f6; color: #aaa79b; font-size: 12px; }
+.cat-image-preview img { width: 100%; height: 100%; object-fit: cover; }
+.cat-image-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.cat-image-actions label { cursor: pointer; }
+.cat-quick-create { max-width: 480px; margin-top: 12px; display: flex; align-items: center; gap: 8px; }
+.o-notebook-page > .o-form-hint:first-child { margin-top: 0; margin-bottom: 12px; }

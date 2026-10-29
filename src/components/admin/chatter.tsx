@@ -3,7 +3,7 @@ import { apiBaseUrl } from '@/lib/api'
 import { fetchCsrfToken } from '@/lib/csrf'
 import { formatDualDate } from '@/lib/ethiopian-calendar'
 
-export type ChatterModel = 'lead' | 'event' | 'project' | 'invoice'
+export type ChatterModel = 'lead' | 'event' | 'project' | 'invoice' | 'plan' | 'package'
 
 type TrackingValue = { field: string; field_label: string; old_value: string; new_value: string }
 type ChatterMessage = {
