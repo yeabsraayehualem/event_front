@@ -54,8 +54,6 @@ export function LeadsPage() {
   const [reloadKey, setReloadKey] = useState(0)
   const [viewMode, setViewMode] = useState<'table' | 'board'>('table')
   const [boardMessage, setBoardMessage] = useState('')
-  const [wonLead, setWonLead] = useState<Lead | null>(null)
-  const [convertingWonLead, setConvertingWonLead] = useState(false)
   const visibleLeads = leads.filter((lead) => {
     const query = search.trim().toLowerCase()
     if (!query) return true
@@ -117,36 +115,15 @@ export function LeadsPage() {
       const body = await response.json()
       if (!response.ok) throw new Error(body?.detail || 'This lead could not be moved.')
       setLeads((current) => current.map((item) => item.id === lead.id ? { ...item, status: nextStatus } : item))
-      if (nextStatus === 'won') {
-        setWonLead({ ...lead, status: nextStatus })
-        setBoardMessage('The lead is won. Choose whether to create its event now.')
+      if (nextStatus === 'won' && lead.status !== 'won') {
+        const invoices = Array.isArray(body?.invoice_ids) ? body.invoice_ids.length : 0
+        setBoardMessage(
+          `${lead.customer.name}’s lead is won — its event${invoices ? ', deposit invoice' : ''} and project were created.`
+          + (invoices ? '' : ' No deposit invoice was made; open the lead to see why.'),
+        )
       }
     } catch (moveError) {
       setBoardMessage(moveError instanceof Error ? moveError.message : 'This lead could not be moved.')
-    }
-  }
-
-  async function createEventFromWonLead() {
-    if (!wonLead) return
-    setConvertingWonLead(true)
-    setBoardMessage('')
-    try {
-      const csrfResponse = await fetch(`${apiBaseUrl}/user/csrf/`, { credentials: 'include' })
-      const csrfBody: unknown = await csrfResponse.json()
-      const csrfToken = typeof csrfBody === 'object' && csrfBody !== null && 'csrf_token' in csrfBody
-        ? (csrfBody as { csrf_token?: unknown }).csrf_token : undefined
-      if (!csrfResponse.ok || typeof csrfToken !== 'string') throw new Error('Could not prepare a secure event creation request.')
-      const response = await fetch(`${apiBaseUrl}/crm/sales/leads/${wonLead.id}/convert/`, {
-        method: 'POST', credentials: 'include', headers: { Accept: 'application/json', 'X-CSRFToken': csrfToken },
-      })
-      const body = await response.json()
-      if (!response.ok) throw new Error(body?.detail || 'We could not create the event.')
-      setBoardMessage(`Event #${body?.data?.id} has been created from ${wonLead.customer.name}’s won lead.`)
-      setWonLead(null)
-    } catch (conversionError) {
-      setBoardMessage(conversionError instanceof Error ? conversionError.message : 'We could not create the event.')
-    } finally {
-      setConvertingWonLead(false)
     }
   }
 
@@ -278,19 +255,6 @@ export function LeadsPage() {
           </section>}
         </div>
       </main>
-      {wonLead && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-[#17251d]/55 p-4" role="presentation">
-          <section role="dialog" aria-modal="true" aria-labelledby="board-won-event-title" className="w-full max-w-md border border-[#d8cba8] bg-[#fffdf7] p-7 shadow-2xl">
-            <p className="text-xs font-semibold uppercase tracking-[.16em] text-[#a64f42]">Lead won</p>
-            <h2 id="board-won-event-title" className="mt-2 font-serif text-2xl text-[#294635]">Create an event for {wonLead.customer.name}?</h2>
-            <p className="mt-3 text-sm leading-6 text-[#77766c]">The confirmed celebration details will be copied into a new event record.</p>
-            <div className="mt-6 flex justify-end gap-3">
-              <button type="button" onClick={() => setWonLead(null)} className="min-h-11 border border-[#d8cba8] px-4 text-sm text-[#53614a]">Later</button>
-              <button type="button" disabled={convertingWonLead} onClick={() => void createEventFromWonLead()} className="min-h-11 bg-[#28513c] px-5 text-sm font-semibold text-white disabled:opacity-60">{convertingWonLead ? 'Creating…' : 'Create event'}</button>
-            </div>
-          </section>
-        </div>
-      )}
     </div>
   )
 }

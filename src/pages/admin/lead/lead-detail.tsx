@@ -29,6 +29,8 @@ type Lead = {
   can_assign_sales: boolean
   available_sales_people: { id: number; name: string }[]
   event_id: number | null
+  invoice_ids: number[]
+  project_ids: number[]
 }
 
 const statuses: { value: LeadStatus; label: string; folded?: boolean }[] = [
@@ -69,9 +71,7 @@ export function LeadDetailPage() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [saved, setSaved] = useState(false)
-  const [showEventPrompt, setShowEventPrompt] = useState(false)
-  const [creatingEvent, setCreatingEvent] = useState(false)
-  const [eventCreated, setEventCreated] = useState<number | null>(null)
+  const [completing, setCompleting] = useState(false)
   const [chatterKey, setChatterKey] = useState(0)
 
   const resetDraft = useCallback((data: Lead) => {
@@ -101,8 +101,6 @@ export function LeadDetailPage() {
       if (!response.ok) throw new Error(responseMessage(body))
       const data = body as Lead
       setLead(data)
-      setEventCreated(data.event_id)
-      if (data.status === 'won' && !data.event_id) setShowEventPrompt(true)
       resetDraft(data)
     } catch (loadError) {
       if (loadError instanceof Error && loadError.name !== 'AbortError') setError(loadError.message)
@@ -154,11 +152,9 @@ export function LeadDetailPage() {
       if (!response.ok) throw new Error(responseMessage(body))
       const updated = body as Lead
       setLead(updated)
-      setEventCreated(updated.event_id)
       resetDraft(updated)
       setSaved(true)
       setChatterKey((key) => key + 1)
-      if (updated.status === 'won' && !updated.event_id) setShowEventPrompt(true)
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : 'We could not save this lead.')
     } finally {
@@ -183,9 +179,10 @@ export function LeadDetailPage() {
     }
   }
 
-  async function createEventFromLead() {
+  // Leads won before the automation existed: create whatever is still missing.
+  async function completeWonLead() {
     if (!leadId) return
-    setCreatingEvent(true)
+    setCompleting(true)
     setError('')
     try {
       const csrfToken = await fetchCsrfToken()
@@ -195,18 +192,12 @@ export function LeadDetailPage() {
       })
       const body: unknown = await response.json()
       if (!response.ok) throw new Error(responseMessage(body))
-      const data = typeof body === 'object' && body !== null && 'data' in body
-        ? (body as { data?: { id?: number } }).data : undefined
-      const createdEventId = data?.id
-      if (typeof createdEventId !== 'number') throw new Error('The event was created, but its reference was missing from the response.')
-      setEventCreated(createdEventId)
-      setShowEventPrompt(false)
-      setLead((current) => current ? { ...current, event_id: createdEventId } : current)
+      await loadLead(new AbortController().signal)
       setChatterKey((key) => key + 1)
-    } catch (eventError) {
-      setError(eventError instanceof Error ? eventError.message : 'We could not create the event.')
+    } catch (completeError) {
+      setError(completeError instanceof Error ? completeError.message : 'We could not create the event.')
     } finally {
-      setCreatingEvent(false)
+      setCompleting(false)
     }
   }
 
@@ -215,6 +206,10 @@ export function LeadDetailPage() {
     : lead?.status === 'cancelled' ? { label: 'Cancelled', tone: 'danger' as const }
     : null
   const packageContents = lead?.package?.contents ?? []
+  const eventId = lead?.event_id ?? null
+  const invoiceIds = lead?.invoice_ids ?? []
+  const projectIds = lead?.project_ids ?? []
+  const missingWonRecords = lead?.status === 'won' && (!eventId || !projectIds.length)
 
   return (
     <div className="bahran-dashboard flex min-h-screen">
@@ -238,14 +233,16 @@ export function LeadDetailPage() {
               statusOptions={statuses}
               onStatusChange={changeStatus}
               actionSlot={<>
-                {lead.status === 'won' && !eventCreated && (
-                  <button type="button" className="o-btn o-btn-primary" onClick={() => setShowEventPrompt(true)}>Create event</button>
+                {missingWonRecords && (
+                  <button type="button" className="o-btn o-btn-primary" disabled={completing} onClick={() => void completeWonLead()}>
+                    {completing ? 'Creating…' : 'Create event, invoice & project'}
+                  </button>
                 )}
-                {eventCreated && (
-                  <Link to={`/dashboard/invoices/new?event=${eventCreated}`} className="o-btn o-btn-secondary">New invoice</Link>
+                {eventId && (
+                  <Link to={`/dashboard/invoices/new?event=${eventId}`} className="o-btn o-btn-secondary">New invoice</Link>
                 )}
-                {eventCreated && (
-                  <Link to={`/dashboard/projects/new?event=${eventCreated}`} className="o-btn o-btn-secondary">New project</Link>
+                {status === 'won' && lead.status !== 'won' && (
+                  <span className="o-statusbar-hint">Saving will create the event, a deposit invoice and a project.</span>
                 )}
                 {!closedStatuses.includes(status) && (
                   <button type="button" className="o-btn o-btn-secondary" onClick={() => changeStatus('won')}>Mark won</button>
@@ -262,10 +259,22 @@ export function LeadDetailPage() {
                   <span className="o-stat-icon" aria-hidden="true">✦</span>
                   <span><strong>{lead.guest_count ?? '—'}</strong><small>Guests</small></span>
                 </div>
-                <div className={`o-stat-button${eventCreated ? '' : ' is-muted'}`}>
+                <div className={`o-stat-button${eventId ? '' : ' is-muted'}`}>
                   <span className="o-stat-icon" aria-hidden="true">◈</span>
-                  <span><strong>{eventCreated ? `#${eventCreated}` : 'None'}</strong><small>Event</small></span>
+                  <span><strong>{eventId ? `#${eventId}` : 'None'}</strong><small>Event</small></span>
                 </div>
+                {invoiceIds.length > 0 && (
+                  <Link to={invoiceIds.length === 1 ? `/dashboard/invoices/${invoiceIds[0]}` : '/dashboard/invoices'} className="o-stat-button">
+                    <span className="o-stat-icon" aria-hidden="true">Br</span>
+                    <span><strong>{invoiceIds.length}</strong><small>{invoiceIds.length === 1 ? 'Invoice' : 'Invoices'}</small></span>
+                  </Link>
+                )}
+                {projectIds.length > 0 && (
+                  <Link to={`/dashboard/projects/${projectIds[0]}`} className="o-stat-button">
+                    <span className="o-stat-icon" aria-hidden="true">☰</span>
+                    <span><strong>{projectIds.length}</strong><small>{projectIds.length === 1 ? 'Project' : 'Projects'}</small></span>
+                  </Link>
+                )}
               </>}
               headerFields={[
                 { name: 'phone', label: 'Phone', value: lead.customer.phone, type: 'tel', readOnly: true },
@@ -358,18 +367,6 @@ export function LeadDetailPage() {
           )}
         </div>
       </main>
-      {showEventPrompt && lead?.status === 'won' && !eventCreated && (
-        <div className="o-dialog-backdrop" role="presentation" onClick={(event) => { if (event.target === event.currentTarget) setShowEventPrompt(false) }}>
-          <section role="dialog" aria-modal="true" aria-labelledby="won-event-title" className="o-dialog">
-            <header><h2 id="won-event-title">Create the event now?</h2></header>
-            <p>The confirmed customer, celebration, date, package, and location will be carried into a new event record.</p>
-            <footer>
-              <button type="button" disabled={creatingEvent} onClick={() => void createEventFromLead()} className="o-btn o-btn-primary">{creatingEvent ? 'Creating…' : 'Create event'}</button>
-              <button type="button" onClick={() => setShowEventPrompt(false)} className="o-btn o-btn-secondary">Later</button>
-            </footer>
-          </section>
-        </div>
-      )}
     </div>
   )
 }
