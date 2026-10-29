@@ -6,6 +6,7 @@ import { apiBaseUrl } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth-store'
 import { RecordFormView } from '@/components/admin/record-form-view'
 import { formatDualDate } from '@/lib/ethiopian-calendar'
+import { fetchCsrfToken } from '@/lib/csrf'
 
 type LeadStatus = 'lead' | 'contacted' | 'consultation_scheduled' | 'quotation_sent' | 'negotiation' | 'won' | 'lost' | 'cancelled'
 type Lead = {
@@ -30,16 +31,17 @@ type Lead = {
   event_id: number | null
 }
 
-const statuses: { value: LeadStatus; label: string }[] = [
-  { value: 'lead', label: 'New lead' },
+const statuses: { value: LeadStatus; label: string; folded?: boolean }[] = [
+  { value: 'lead', label: 'New' },
   { value: 'contacted', label: 'Contacted' },
-  { value: 'consultation_scheduled', label: 'Consultation scheduled' },
+  { value: 'consultation_scheduled', label: 'Consultation' },
   { value: 'quotation_sent', label: 'Quotation sent' },
   { value: 'negotiation', label: 'Negotiation' },
   { value: 'won', label: 'Won' },
-  { value: 'lost', label: 'Lost' },
-  { value: 'cancelled', label: 'Cancelled' },
+  { value: 'lost', label: 'Lost', folded: true },
+  { value: 'cancelled', label: 'Cancelled', folded: true },
 ]
+const closedStatuses: LeadStatus[] = ['won', 'lost', 'cancelled']
 
 function formatDate(value: string) {
   return formatDualDate(value)
@@ -70,6 +72,16 @@ export function LeadDetailPage() {
   const [showEventPrompt, setShowEventPrompt] = useState(false)
   const [creatingEvent, setCreatingEvent] = useState(false)
   const [eventCreated, setEventCreated] = useState<number | null>(null)
+  const [chatterKey, setChatterKey] = useState(0)
+
+  const resetDraft = useCallback((data: Lead) => {
+    setStatus(data.status)
+    setNotes(data.notes ?? '')
+    setPlanDate(data.plan_date)
+    setLocation(data.location ?? '')
+    setPackageId(data.package ? String(data.package.id) : '')
+    setSalesPersonId(data.assigned_sales_person_id ? String(data.assigned_sales_person_id) : '')
+  }, [])
 
   const loadLead = useCallback(async (signal: AbortSignal) => {
     setLoading(true)
@@ -91,18 +103,13 @@ export function LeadDetailPage() {
       setLead(data)
       setEventCreated(data.event_id)
       if (data.status === 'won' && !data.event_id) setShowEventPrompt(true)
-      setStatus(data.status)
-      setNotes(data.notes ?? '')
-      setPlanDate(data.plan_date)
-      setLocation(data.location ?? '')
-      setPackageId(data.package ? String(data.package.id) : '')
-      setSalesPersonId(data.assigned_sales_person_id ? String(data.assigned_sales_person_id) : '')
+      resetDraft(data)
     } catch (loadError) {
       if (loadError instanceof Error && loadError.name !== 'AbortError') setError(loadError.message)
     } finally {
       setLoading(false)
     }
-  }, [leadId, logout, navigate])
+  }, [leadId, logout, navigate, resetDraft])
 
   useEffect(() => {
     const controller = new AbortController()
@@ -117,16 +124,7 @@ export function LeadDetailPage() {
     setSaved(false)
     setError('')
     try {
-      const csrfResponse = await fetch(`${apiBaseUrl}/user/csrf/`, {
-        credentials: 'include', headers: { Accept: 'application/json' },
-      })
-      const csrfBody: unknown = await csrfResponse.json()
-      const csrfToken = typeof csrfBody === 'object' && csrfBody !== null && 'csrf_token' in csrfBody
-        ? (csrfBody as { csrf_token?: unknown }).csrf_token
-        : undefined
-      if (!csrfResponse.ok || typeof csrfToken !== 'string') {
-        throw new Error('Could not prepare the secure session for saving this lead. Please reload and try again.')
-      }
+      const csrfToken = await fetchCsrfToken()
       const response = await fetch(`${apiBaseUrl}/crm/sales/leads/${leadId}/`, {
         method: 'PATCH',
         credentials: 'include',
@@ -157,13 +155,9 @@ export function LeadDetailPage() {
       const updated = body as Lead
       setLead(updated)
       setEventCreated(updated.event_id)
-      setStatus(updated.status)
-      setNotes(updated.notes ?? '')
-      setPlanDate(updated.plan_date)
-      setLocation(updated.location ?? '')
-      setPackageId(updated.package ? String(updated.package.id) : '')
-      setSalesPersonId(updated.assigned_sales_person_id ? String(updated.assigned_sales_person_id) : '')
+      resetDraft(updated)
       setSaved(true)
+      setChatterKey((key) => key + 1)
       if (updated.status === 'won' && !updated.event_id) setShowEventPrompt(true)
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : 'We could not save this lead.')
@@ -172,16 +166,29 @@ export function LeadDetailPage() {
     }
   }
 
+  const dirty = Boolean(lead) && (
+    status !== lead?.status
+    || notes !== (lead?.notes ?? '')
+    || planDate !== lead?.plan_date
+    || location !== (lead?.location ?? '')
+    || packageId !== (lead?.package ? String(lead.package.id) : '')
+    || (Boolean(lead?.can_assign_sales) && salesPersonId !== (lead?.assigned_sales_person_id ? String(lead.assigned_sales_person_id) : ''))
+  )
+
+  function changeStatus(value: string) {
+    const selected = statuses.find((option) => option.value === value)
+    if (selected) {
+      setStatus(selected.value)
+      setSaved(false)
+    }
+  }
+
   async function createEventFromLead() {
     if (!leadId) return
     setCreatingEvent(true)
     setError('')
     try {
-      const csrfResponse = await fetch(`${apiBaseUrl}/user/csrf/`, { credentials: 'include' })
-      const csrfBody: unknown = await csrfResponse.json()
-      const csrfToken = typeof csrfBody === 'object' && csrfBody !== null && 'csrf_token' in csrfBody
-        ? (csrfBody as { csrf_token?: unknown }).csrf_token : undefined
-      if (!csrfResponse.ok || typeof csrfToken !== 'string') throw new Error('Could not prepare a secure event creation request.')
+      const csrfToken = await fetchCsrfToken()
       const response = await fetch(`${apiBaseUrl}/crm/sales/leads/${leadId}/convert/`, {
         method: 'POST', credentials: 'include',
         headers: { Accept: 'application/json', 'X-CSRFToken': csrfToken },
@@ -195,6 +202,7 @@ export function LeadDetailPage() {
       setEventCreated(createdEventId)
       setShowEventPrompt(false)
       setLead((current) => current ? { ...current, event_id: createdEventId } : current)
+      setChatterKey((key) => key + 1)
     } catch (eventError) {
       setError(eventError instanceof Error ? eventError.message : 'We could not create the event.')
     } finally {
@@ -202,113 +210,163 @@ export function LeadDetailPage() {
     }
   }
 
+  const ribbon = lead?.status === 'won' ? { label: 'Won', tone: 'success' as const }
+    : lead?.status === 'lost' ? { label: 'Lost', tone: 'danger' as const }
+    : lead?.status === 'cancelled' ? { label: 'Cancelled', tone: 'danger' as const }
+    : null
+  const packageContents = lead?.package?.contents ?? []
+
   return (
     <div className="bahran-dashboard flex min-h-screen">
       <SideNav items={adminNavigationItems} title="Bahran Events" />
       <main className="bahran-dashboard-main min-w-0 flex-1 px-5 py-8 sm:px-8 lg:px-10">
         <div className="mx-auto max-w-7xl">
-          <div className="mb-5">
-            <Link to="/dashboard/leads" className="text-xs font-semibold uppercase tracking-[.12em] text-[#756039] hover:text-[#a64f42]">← Back to leads</Link>
-          </div>
-          {loading && <div className="dashboard-message" role="status">Loading lead details…</div>}
-          {error && <section className="dashboard-message dashboard-message--error" role="alert"><div><strong>There’s a problem with this lead.</strong><p>{error}</p></div><button type="button" onClick={() => { const controller = new AbortController(); void loadLead(controller.signal) }}>Try again <span>↻</span></button></section>}
+          {loading && !lead && <div className="o-form-loading" role="status"><span /><span /><span /></div>}
+          {error && <section className="dashboard-message dashboard-message--error" role="alert"><div><strong>There’s a problem with this lead.</strong><p>{error}</p></div>{!lead && <button type="button" onClick={() => { const controller = new AbortController(); void loadLead(controller.signal) }}>Try again <span>↻</span></button>}</section>}
+          {!lead && !loading && !error && <p className="dashboard-message"><Link to="/dashboard/leads">Back to leads</Link></p>}
 
           {lead && (
-            <>
-              {lead.status === 'won' && (
-                <section className="mb-6 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-[#e5e1d6] bg-white p-5 shadow-sm" aria-label="Won lead event conversion">
-                  <div><h2 className="font-serif text-lg text-[#294635]">This celebration is won</h2><p className="mt-1 text-sm text-[#77766c]">Create its event record to carry the confirmed details forward.</p>{eventCreated && <p className="mt-2 text-sm font-semibold text-[#28513c]" role="status">Event #{eventCreated} is linked to this lead.</p>}</div>
-                  {!eventCreated && <button type="button" onClick={() => setShowEventPrompt(true)} className="min-h-11 rounded-lg bg-[#28513c] px-5 text-xs font-semibold uppercase tracking-[.1em] text-[#fff9e9] hover:bg-[#1d3d2c]">Create event <span className="ml-2 text-[#e1c779]">↗</span></button>}
-                </section>
-              )}
-              <RecordFormView
-                modelName="Lead"
-                title={lead.customer.name}
-                subtitle={`Inquiry received ${formatDate(lead.date)}`}
-                recordId={lead.id}
-                backHref="/dashboard/leads"
-                backLabel="All leads"
-                status={status}
-                statusOptions={statuses}
-                onStatusChange={(value) => {
-                  const selected = statuses.find((option) => option.value === value)
-                  if (selected) setStatus(selected.value)
-                }}
-                headerFields={[
-                  { name: 'customer_name', label: 'Customer', value: lead.customer.name, readOnly: true },
-                  { name: 'phone', label: 'Phone', value: lead.customer.phone, type: 'tel', readOnly: true },
-                  { name: 'plan', label: 'Event plan', value: lead.plan.name, readOnly: true },
-                  {
-                    name: 'package_id',
-                    label: 'Package',
-                    type: 'select',
-                    value: packageId,
-                    options: [
-                      { value: '', label: 'No package selected' },
-                      ...lead.plan.packages.map((item) => ({ value: String(item.id), label: item.name })),
-                    ],
-                  },
-                  { name: 'plan_date', label: 'Event date', type: 'date', value: planDate, required: true },
-                ]}
-                sections={[
-                  {
-                    title: 'Celebration details',
-                    description: 'The event information shared with the original inquiry.',
-                    fields: [
-                      { name: 'event_type', label: 'Event type', value: lead.event_type, readOnly: true },
-                      { name: 'guest_count', label: 'Estimated guests', value: lead.guest_count, readOnly: true },
-                      { name: 'budget_tier', label: 'Budget range', value: lead.budget_tier, readOnly: true },
-                      { name: 'requirements', label: 'Customer requirements', value: lead.requirements, fullWidth: true, readOnly: true },
-                      { name: 'location', label: 'Venue or location', value: location, placeholder: 'To be confirmed' },
-                    ],
-                  },
-                  {
-                    title: 'Follow-up',
-                    description: 'Keep the sales team up to date on the next step.',
-                    fields: [
-                      { name: 'notes', label: 'Notes', type: 'textarea', value: notes, fullWidth: true, placeholder: 'Add discussion notes or the next step…' },
-                      {
-                        name: 'assigned_sales_person_id',
-                        label: 'Assigned sales person',
-                        type: 'select',
-                        value: lead.can_assign_sales ? salesPersonId : lead.assigned_sales_person ?? 'Unassigned',
-                        readOnly: !lead.can_assign_sales,
-                        options: [
-                          { value: '', label: 'Unassigned' },
-                          ...lead.available_sales_people.map((person) => ({ value: String(person.id), label: person.name })),
-                        ],
-                      },
-                    ],
-                  },
-                ]}
-                onFieldChange={(name, value) => {
-                  if (name === 'package_id') setPackageId(value)
-                  if (name === 'plan_date') setPlanDate(value)
-                  if (name === 'location') setLocation(value)
-                  if (name === 'notes') setNotes(value)
-                  if (name === 'assigned_sales_person_id') setSalesPersonId(value)
-                }}
-                onSubmit={saveLead}
-                saving={saving}
-                saved={saved}
-                submitLabel="Save changes"
-                submittingLabel="Saving changes…"
-              />
-
-            </>
+            <RecordFormView
+              modelName="Lead"
+              title={lead.customer.name}
+              subtitle={`Inquiry received ${formatDate(lead.date)}`}
+              recordId={lead.id}
+              backHref="/dashboard/leads"
+              backLabel="Leads"
+              ribbon={ribbon}
+              status={status}
+              statusOptions={statuses}
+              onStatusChange={changeStatus}
+              actionSlot={<>
+                {lead.status === 'won' && !eventCreated && (
+                  <button type="button" className="o-btn o-btn-primary" onClick={() => setShowEventPrompt(true)}>Create event</button>
+                )}
+                {eventCreated && (
+                  <Link to={`/dashboard/invoices/new?event=${eventCreated}`} className="o-btn o-btn-secondary">New invoice</Link>
+                )}
+                {eventCreated && (
+                  <Link to={`/dashboard/projects/new?event=${eventCreated}`} className="o-btn o-btn-secondary">New project</Link>
+                )}
+                {!closedStatuses.includes(status) && (
+                  <button type="button" className="o-btn o-btn-secondary" onClick={() => changeStatus('won')}>Mark won</button>
+                )}
+                {!closedStatuses.includes(status) && (
+                  <button type="button" className="o-btn o-btn-secondary" onClick={() => changeStatus('lost')}>Mark lost</button>
+                )}
+                {closedStatuses.includes(status) && status !== lead.status && (
+                  <button type="button" className="o-btn o-btn-secondary" onClick={() => changeStatus(lead.status)}>Undo</button>
+                )}
+              </>}
+              headerAside={<>
+                <div className="o-stat-button">
+                  <span className="o-stat-icon" aria-hidden="true">✦</span>
+                  <span><strong>{lead.guest_count ?? '—'}</strong><small>Guests</small></span>
+                </div>
+                <div className={`o-stat-button${eventCreated ? '' : ' is-muted'}`}>
+                  <span className="o-stat-icon" aria-hidden="true">◈</span>
+                  <span><strong>{eventCreated ? `#${eventCreated}` : 'None'}</strong><small>Event</small></span>
+                </div>
+              </>}
+              headerFields={[
+                { name: 'phone', label: 'Phone', value: lead.customer.phone, type: 'tel', readOnly: true },
+                { name: 'plan_date', label: 'Event date', type: 'date', value: planDate, required: true },
+                { name: 'plan', label: 'Event plan', value: lead.plan.name, readOnly: true },
+                {
+                  name: 'assigned_sales_person_id',
+                  label: 'Sales person',
+                  type: 'select',
+                  value: salesPersonId,
+                  displayValue: lead.can_assign_sales ? undefined : (lead.assigned_sales_person ?? ''),
+                  placeholder: 'Unassigned',
+                  readOnly: !lead.can_assign_sales,
+                  options: [
+                    { value: '', label: 'Unassigned' },
+                    ...lead.available_sales_people.map((person) => ({ value: String(person.id), label: person.name })),
+                  ],
+                },
+                {
+                  name: 'package_id',
+                  label: 'Package',
+                  type: 'select',
+                  value: packageId,
+                  options: [
+                    { value: '', label: 'No package selected' },
+                    ...lead.plan.packages.map((item) => ({ value: String(item.id), label: item.name })),
+                  ],
+                },
+                { name: 'location', label: 'Venue', value: location, placeholder: 'To be confirmed' },
+              ]}
+              tabs={[
+                {
+                  id: 'celebration',
+                  label: 'Celebration',
+                  sections: [
+                    {
+                      title: 'From the inquiry',
+                      fields: [
+                        { name: 'event_type', label: 'Event type', value: lead.event_type, readOnly: true },
+                        { name: 'guest_count', label: 'Estimated guests', value: lead.guest_count, readOnly: true },
+                        { name: 'budget_tier', label: 'Budget range', value: lead.budget_tier, readOnly: true },
+                      ],
+                    },
+                    {
+                      title: 'Requirements',
+                      fields: [
+                        { name: 'requirements', label: 'Customer notes', value: lead.requirements, fullWidth: true, readOnly: true, placeholder: 'No special requirements shared.' },
+                      ],
+                    },
+                  ],
+                },
+                {
+                  id: 'notes',
+                  label: 'Internal notes',
+                  content: (
+                    <textarea
+                      className="o-input o-notes-editor"
+                      aria-label="Internal notes"
+                      value={notes}
+                      onChange={(event) => { setNotes(event.target.value); setSaved(false) }}
+                      placeholder="Add discussion notes or the next step…"
+                    />
+                  ),
+                },
+                {
+                  id: 'package',
+                  label: 'Package contents',
+                  badge: packageContents.length || undefined,
+                  content: packageContents.length ? (
+                    <ul className="o-content-list">
+                      {packageContents.map((item) => <li key={item.id}><strong>{item.name}</strong>{item.description && <span>{item.description}</span>}</li>)}
+                    </ul>
+                  ) : <p className="o-empty-page">{lead.package ? 'This package has no listed contents.' : 'Choose a package to see what it includes.'}</p>,
+                },
+              ]}
+              onFieldChange={(name, value) => {
+                setSaved(false)
+                if (name === 'package_id') setPackageId(value)
+                if (name === 'plan_date') setPlanDate(value)
+                if (name === 'location') setLocation(value)
+                if (name === 'assigned_sales_person_id') setSalesPersonId(value)
+              }}
+              onSubmit={saveLead}
+              dirty={dirty}
+              onDiscard={() => { resetDraft(lead); setError('') }}
+              saving={saving}
+              saved={saved}
+              chatter={{ model: 'lead', recordId: lead.id, refreshKey: chatterKey }}
+            />
           )}
         </div>
       </main>
       {showEventPrompt && lead?.status === 'won' && !eventCreated && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-[#17251d]/55 p-4" role="presentation">
-          <section role="dialog" aria-modal="true" aria-labelledby="won-event-title" className="w-full max-w-md rounded-2xl border border-[#e5e1d6] bg-white p-7 shadow-2xl">
-            <p className="text-xs font-semibold uppercase tracking-[.16em] text-[#a64f42]">A new beginning</p>
-            <h2 id="won-event-title" className="mt-2 font-serif text-2xl text-[#294635]">Create the event now?</h2>
-            <p className="mt-3 text-sm leading-6 text-[#77766c]">The confirmed customer, celebration, date, package, and location will be carried into an event record.</p>
-            <div className="mt-6 flex justify-end gap-3">
-              <button type="button" onClick={() => setShowEventPrompt(false)} className="min-h-11 rounded-lg border border-[#e5e1d6] px-4 text-sm text-[#53614a]">Later</button>
-              <button type="button" disabled={creatingEvent} onClick={() => void createEventFromLead()} className="min-h-11 rounded-lg bg-[#28513c] px-5 text-sm font-semibold text-white disabled:opacity-60">{creatingEvent ? 'Creating…' : 'Create event'}</button>
-            </div>
+        <div className="o-dialog-backdrop" role="presentation" onClick={(event) => { if (event.target === event.currentTarget) setShowEventPrompt(false) }}>
+          <section role="dialog" aria-modal="true" aria-labelledby="won-event-title" className="o-dialog">
+            <header><h2 id="won-event-title">Create the event now?</h2></header>
+            <p>The confirmed customer, celebration, date, package, and location will be carried into a new event record.</p>
+            <footer>
+              <button type="button" disabled={creatingEvent} onClick={() => void createEventFromLead()} className="o-btn o-btn-primary">{creatingEvent ? 'Creating…' : 'Create event'}</button>
+              <button type="button" onClick={() => setShowEventPrompt(false)} className="o-btn o-btn-secondary">Later</button>
+            </footer>
           </section>
         </div>
       )}

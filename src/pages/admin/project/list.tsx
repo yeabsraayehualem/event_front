@@ -62,6 +62,7 @@ export const ProjectList = ()=>{
                 <h1 className="dashboard-title">Projects</h1>
                 <p className="dashboard-subtitle">Manage customer projects and tasks.</p>
               </div>
+              <Link to="/dashboard/projects/new" className="invoice-primary-action inline-flex min-h-10 items-center rounded-lg bg-[#28513c] px-4 text-sm font-medium text-white transition-colors hover:bg-[#1d3d2c]">New project <span className="ml-2 text-[#e1c779]">+</span></Link>
             </header>
         
 

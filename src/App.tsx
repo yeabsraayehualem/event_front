@@ -6,6 +6,9 @@ import { InvoicePage } from './pages/admin/invoices/invoice-page'
 import { InvoiceDetailPage } from './pages/admin/invoices/invoices-detail'
 import { ProjectList } from './pages/admin/project/list'
 import { ProjectDetail } from './pages/admin/project/detail'
+import { ProjectNew } from './pages/admin/project/new'
+import { InvoiceNewPage } from './pages/admin/invoices/invoice-new'
+import { LeadNewPage } from './pages/admin/lead/lead-new'
 
 const DashboardPage = lazy(() =>
   import('./pages/admin/dashboard').then((module) => ({
@@ -30,14 +33,17 @@ const routes = [
   {path: "/dashboard/*", element: <DashboardPage />} ,
 
 
+  { path: "/dashboard/leads/new", element: <LeadNewPage /> },
   { path: "/dashboard/leads/:leadId", element: <LeadDetailPage /> },
   { path: "/dashboard/leads", element: <LeadsPage />},
   
   { path: "/dashboard/invoices", element: <InvoicePage /> },
+  { path: "/dashboard/invoices/new", element: <InvoiceNewPage /> },
   { path: "/dashboard/invoices/:id", element: <InvoiceDetailPage />},
 
   { path: "/dashboard/projects", element: <ProjectList />},
-{path:"/dashboard/projects/:id",element: <ProjectDetail />}
+  { path: "/dashboard/projects/new", element: <ProjectNew /> },
+  { path: "/dashboard/projects/:id", element: <ProjectDetail /> },
 
  
 ]

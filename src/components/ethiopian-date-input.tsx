@@ -1,4 +1,5 @@
-import { useEffect, useId, useMemo, useRef, useState } from 'react'
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
+import { createPortal } from 'react-dom'
 import {
   ETHIOPIAN_MONTHS,
   addDays,
@@ -23,6 +24,9 @@ const WEEKDAYS = [
 ]
 
 const toIso = (d: Date) => d.toISOString().slice(0, 10)
+const POP_WIDTH = 300
+const POP_GAP = 6
+const VIEWPORT_MARGIN = 8
 
 function daysInMonth(year: number, month: number) {
   if (month < 13) return 30
@@ -71,6 +75,8 @@ export function EthiopianDateInput({
   })
   const rootRef = useRef<HTMLDivElement>(null)
   const triggerRef = useRef<HTMLButtonElement>(null)
+  const popRef = useRef<HTMLDivElement>(null)
+  const [popStyle, setPopStyle] = useState<CSSProperties>({ visibility: 'hidden' })
   const minDate = min ? parseIsoDate(min) : null
   const maxDate = max ? parseIsoDate(max) : null
 
@@ -86,7 +92,9 @@ export function EthiopianDateInput({
   useEffect(() => {
     if (!open) return
     function onDocDown(e: MouseEvent) {
-      if (rootRef.current && !rootRef.current.contains(e.target as Node)) setOpen(false)
+      const target = e.target as Node
+      if (rootRef.current?.contains(target) || popRef.current?.contains(target)) return
+      setOpen(false)
     }
     function onKey(e: KeyboardEvent) {
       if (e.key === 'Escape') {
@@ -101,6 +109,33 @@ export function EthiopianDateInput({
       document.removeEventListener('keydown', onKey)
     }
   }, [open])
+
+  // The popover is portalled to <body> so scrolling tables and cards with
+  // overflow clipping can't cut it off; keep it pinned to the trigger.
+  useLayoutEffect(() => {
+    if (!open) return
+    function place() {
+      const trigger = triggerRef.current
+      if (!trigger) return
+      const rect = trigger.getBoundingClientRect()
+      const popHeight = popRef.current?.offsetHeight ?? 0
+      const width = Math.min(POP_WIDTH, window.innerWidth - VIEWPORT_MARGIN * 2)
+      const left = Math.max(VIEWPORT_MARGIN, Math.min(rect.left, window.innerWidth - width - VIEWPORT_MARGIN))
+      const fitsBelow = rect.bottom + POP_GAP + popHeight <= window.innerHeight - VIEWPORT_MARGIN
+      const fitsAbove = rect.top - POP_GAP - popHeight >= VIEWPORT_MARGIN
+      const top = fitsBelow || !fitsAbove
+        ? rect.bottom + POP_GAP
+        : rect.top - POP_GAP - popHeight
+      setPopStyle({ top, left, width })
+    }
+    place()
+    window.addEventListener('resize', place)
+    window.addEventListener('scroll', place, true)
+    return () => {
+      window.removeEventListener('resize', place)
+      window.removeEventListener('scroll', place, true)
+    }
+  }, [open, view])
 
   const churchDays = useMemo(() => {
     if (!showChurchDays) return new Map<string, 'feast' | 'fast'>()
@@ -175,8 +210,8 @@ export function EthiopianDateInput({
         onInvalid={() => triggerRef.current?.focus()}
       />
 
-      {open && (
-        <div className="etdp-pop" role="dialog" aria-label="Choose a date">
+      {open && createPortal(
+        <div className="etdp-pop" role="dialog" aria-label="Choose a date" ref={popRef} style={popStyle}>
           <div className="etdp-head">
             <button type="button" className="etdp-nav" onClick={() => step(-1)} aria-label="Previous month">‹</button>
             <div className="etdp-title">
@@ -243,7 +278,8 @@ export function EthiopianDateInput({
               </button>
             </span>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   )

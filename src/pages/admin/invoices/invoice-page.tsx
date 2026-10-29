@@ -57,7 +57,7 @@ export const InvoicePage = () =>{
                 <h1 className="dashboard-title">Invoices</h1>
                 <p className="dashboard-subtitle">Manage customer invoices and payments.</p>
               </div>
-              <button className="invoice-primary-action min-h-10 rounded-lg bg-[#28513c] px-4 text-sm font-medium text-white transition-colors hover:bg-[#1d3d2c]">Add invoice <span className="ml-2 text-[#e1c779]">+</span></button>
+              <Link to="/dashboard/invoices/new" className="invoice-primary-action inline-flex min-h-10 items-center rounded-lg bg-[#28513c] px-4 text-sm font-medium text-white transition-colors hover:bg-[#1d3d2c]">New invoice <span className="ml-2 text-[#e1c779]">+</span></Link>
             </header>
 
             <section className="invoice-toolbar flex flex-wrap items-center justify-between gap-3 border border-[#e5e1d6] bg-white p-4 shadow-sm" aria-label="Invoice filters">
