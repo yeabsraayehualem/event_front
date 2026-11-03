@@ -5,6 +5,8 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useAuthStore } from '@/stores/auth-store'
+import { landingPath } from '@/components/admin-navigation'
+import type { Profile } from '@/lib/use-profile'
 
 const loginSchema = z.object({
   phone: z.string().min(1, 'Phone number is required'),
@@ -29,7 +31,8 @@ export function LoginForm() {
     clearError()
     try {
       await login({ phone: data.phone, password: data.password })
-      navigate('/dashboard')
+      const signedIn = (useAuthStore.getState().loginResponse?.data ?? null) as Profile | null
+      navigate(landingPath(signedIn), { replace: true })
     } catch {
       // The store keeps the error message for display below.
     }

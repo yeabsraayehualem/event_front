@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
+import { AccessLink } from '@/components/admin/access-link'
+import { can, useProfile } from '@/lib/use-profile'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { SideNav } from '@/components/side-nav'
 import { adminNavigationItems } from '@/components/admin-navigation'
@@ -61,6 +63,7 @@ export function LeadDetailPage() {
   const { leadId } = useParams()
   const navigate = useNavigate()
   const logout = useAuthStore((state) => state.logout)
+  const profile = useProfile()
   const [lead, setLead] = useState<Lead | null>(null)
   const [status, setStatus] = useState<LeadStatus>('lead')
   const [notes, setNotes] = useState('')
@@ -243,7 +246,7 @@ export function LeadDetailPage() {
                     {completing ? 'Creating…' : 'Create event, invoice & project'}
                   </button>
                 )}
-                {eventId && (
+                {eventId && can(profile, 'invoices', 'create') && (
                   <Link to={`/dashboard/invoices/new?event=${eventId}`} className="o-btn o-btn-secondary">New invoice</Link>
                 )}
                 {status === 'won' && lead.status !== 'won' && (
@@ -269,16 +272,16 @@ export function LeadDetailPage() {
                   <span><strong>{eventId ? `#${eventId}` : 'None'}</strong><small>Event</small></span>
                 </div>
                 {invoiceIds.length > 0 && (
-                  <Link to={invoiceIds.length === 1 ? `/dashboard/invoices/${invoiceIds[0]}` : '/dashboard/invoices'} className="o-stat-button">
+                  <AccessLink module="invoices" to={invoiceIds.length === 1 ? `/dashboard/invoices/${invoiceIds[0]}` : '/dashboard/invoices'} className="o-stat-button">
                     <span className="o-stat-icon" aria-hidden="true">Br</span>
                     <span><strong>{invoiceIds.length}</strong><small>{invoiceIds.length === 1 ? 'Invoice' : 'Invoices'}</small></span>
-                  </Link>
+                  </AccessLink>
                 )}
                 {projectIds.length > 0 && (
-                  <Link to={`/dashboard/projects/${projectIds[0]}`} className="o-stat-button">
+                  <AccessLink module="projects" to={`/dashboard/projects/${projectIds[0]}`} className="o-stat-button">
                     <span className="o-stat-icon" aria-hidden="true">☰</span>
                     <span><strong>{projectIds.length}</strong><small>{projectIds.length === 1 ? 'Project' : 'Projects'}</small></span>
-                  </Link>
+                  </AccessLink>
                 )}
               </>}
               headerFields={[

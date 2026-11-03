@@ -15,6 +15,7 @@ import { SideNav } from '@/components/side-nav'
 import { adminNavigationItems } from '@/components/admin-navigation'
 import { apiBaseUrl } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth-store'
+import { can, useProfile } from '@/lib/use-profile'
 import { EthiopianDateInput } from '@/components/ethiopian-date-input'
 import { formatDualDate, formatEthiopian, parseIsoDate, todayUtc } from '@/lib/ethiopian-calendar'
 
@@ -70,15 +71,30 @@ type UpcomingEvent = {
   invoice_count: number
   unpaid_count: number
 }
+type Financials = {
+  income: string
+  collected: string
+  invoice_count: number
+  expense: string
+  event_costs: string
+  overhead: string
+  expense_count: number
+  unbilled_commitments: string
+  net: string
+  margin: number | null
+}
+/** Each section is null when the signed-in role can't see that module (see utils/rbac.py). */
 type DashboardData = {
   scope: 'all' | 'assigned_to_me'
-  summary: Summary
-  status_breakdown: StatusCount[]
-  recent_leads: RecentLead[]
-  sales_performance: SalesPerformance[]
-  monthly_inquiries: MonthCount[]
-  receivables: Receivables
-  upcoming_events: UpcomingEvent[]
+  summary: Summary | null
+  status_breakdown: StatusCount[] | null
+  recent_leads: RecentLead[] | null
+  sales_performance: SalesPerformance[] | null
+  monthly_inquiries: MonthCount[] | null
+  receivables: Receivables | null
+  upcoming_events: UpcomingEvent[] | null
+  active_events: number | null
+  financials: Financials | null
 }
 
 type Preset = 'all' | 'month' | 'quarter' | 'year'
@@ -170,9 +186,50 @@ function MonthTooltip({ active, payload, label }: TooltipContentProps<ValueType,
   )
 }
 
+function ProfitCard({ financials }: { financials: Financials }) {
+  const income = Number(financials.income)
+  const expense = Number(financials.expense)
+  const net = Number(financials.net)
+  const outstanding = income - Number(financials.collected)
+  const scale = Math.max(income, expense, 1)
+  return (
+    <section className="dash-card dash-pl" aria-label="Income and expenses for the selected range">
+      <div className="dash-card-head">
+        <h2>Income &amp; expenses</h2>
+        <span className="dash-muted">Excluding VAT</span>
+      </div>
+      <div className="dash-pl-figures">
+        <Link to="/dashboard/invoices" className="dash-pl-figure">
+          <span>Total income</span>
+          <strong>{formatMoney(financials.income)}</strong>
+          <small>{financials.invoice_count} {financials.invoice_count === 1 ? 'invoice' : 'invoices'} · {formatMoney(financials.collected)} collected{outstanding > 0 ? `, ${formatMoney(outstanding)} unpaid` : ''}</small>
+          <i className="dash-pl-bar is-income" style={{ width: `${(income / scale) * 100}%` }} aria-hidden="true" />
+        </Link>
+        <Link to="/dashboard/expenses" className="dash-pl-figure">
+          <span>Total expense</span>
+          <strong>{formatMoney(financials.expense)}</strong>
+          <small>{formatMoney(financials.event_costs)} event costs · {formatMoney(financials.overhead)} overhead</small>
+          <i className="dash-pl-bar is-expense" style={{ width: `${(expense / scale) * 100}%` }} aria-hidden="true" />
+        </Link>
+        <div className={`dash-pl-figure dash-pl-net${net < 0 ? ' is-loss' : ''}`}>
+          <span>{net < 0 ? 'Net loss' : 'Net gain'}</span>
+          <strong>{formatMoney(net)}</strong>
+          <small>{financials.margin === null ? 'No income in this range' : `${financials.margin}% margin`}</small>
+        </div>
+      </div>
+      {Number(financials.unbilled_commitments) > 0 && (
+        <p className="dash-pl-note">
+          <Link to="/dashboard/purchase-orders?status=approved" className="dash-link">{formatMoney(financials.unbilled_commitments)}</Link> more is committed in approved purchase orders that haven’t been billed yet.
+        </p>
+      )}
+    </section>
+  )
+}
+
 export function DashboardPage() {
   const navigate = useNavigate()
   const logout = useAuthStore((state) => state.logout)
+  const profile = useProfile()
   const [dashboard, setDashboard] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -197,7 +254,7 @@ export function DashboardPage() {
       })
       const body = await response.json()
       if (!response.ok) {
-        if (response.status === 401 || response.status === 403) {
+        if (response.status === 401) {
           await logout()
           navigate('/login', { replace: true })
           return
@@ -205,7 +262,7 @@ export function DashboardPage() {
         throw new Error(body?.message || body?.detail || 'We could not load the dashboard.')
       }
       const data = body?.data as DashboardData | undefined
-      if (!data?.summary || !Array.isArray(data.status_breakdown)) {
+      if (!data || typeof data !== 'object') {
         throw new Error('The dashboard returned an unexpected response.')
       }
       setDashboard(data)
@@ -232,10 +289,20 @@ export function DashboardPage() {
   const tiles = useMemo<StatTile[]>(() => {
     if (!dashboard) return []
     const { summary, receivables } = dashboard
+    const activeEvents = summary?.active_events ?? dashboard.active_events
+    const tiles: StatTile[] = []
+    if (summary) {
+      tiles.push(
+        { label: 'Open leads', value: summary.active_leads.toLocaleString(), detail: `${summary.total_leads.toLocaleString()} inquiries in range`, icon: Ticket01Icon, href: '/dashboard/leads' },
+        { label: 'Won', value: summary.won_leads.toLocaleString(), detail: `${summary.conversion_rate}% conversion · ${summary.lost_leads} lost`, icon: UserGroupIcon },
+      )
+    }
+    if (activeEvents !== null && activeEvents !== undefined) {
+      tiles.push({ label: 'Active events', value: activeEvents.toLocaleString(), detail: 'Planning or underway', icon: Calendar03Icon })
+    }
+    if (!receivables) return tiles
     return [
-      { label: 'Open leads', value: summary.active_leads.toLocaleString(), detail: `${summary.total_leads.toLocaleString()} inquiries in range`, icon: Ticket01Icon, href: '/dashboard/leads' },
-      { label: 'Won', value: summary.won_leads.toLocaleString(), detail: `${summary.conversion_rate}% conversion · ${summary.lost_leads} lost`, icon: UserGroupIcon },
-      { label: 'Active events', value: summary.active_events.toLocaleString(), detail: 'Planning or underway', icon: Calendar03Icon },
+      ...tiles,
       { label: 'Outstanding', value: formatMoney(receivables.outstanding_total, true), detail: `${receivables.outstanding_count} unpaid ${receivables.outstanding_count === 1 ? 'invoice' : 'invoices'}`, icon: Invoice01Icon, href: '/dashboard/invoices' },
       receivables.overdue_count > 0
         ? { label: 'Overdue', value: formatMoney(receivables.overdue_total, true), detail: `${receivables.overdue_count} past due`, icon: Alert02Icon, tone: 'warning', href: '/dashboard/invoices' }
@@ -243,10 +310,14 @@ export function DashboardPage() {
     ]
   }, [dashboard])
 
-  const maxStage = Math.max(1, ...(dashboard?.status_breakdown.map((item) => item.count) ?? []))
-  const maxActive = Math.max(1, ...(dashboard?.sales_performance.map((person) => person.active_leads + person.won_leads) ?? []))
-  const hasTrend = dashboard?.monthly_inquiries.some((month) => month.inquiries > 0) ?? false
-  const dueThisWeek = dashboard?.receivables.due_this_week_count ?? 0
+  const maxStage = Math.max(1, ...(dashboard?.status_breakdown?.map((item) => item.count) ?? []))
+  const maxActive = Math.max(1, ...(dashboard?.sales_performance?.map((person) => person.active_leads + person.won_leads) ?? []))
+  const hasTrend = dashboard?.monthly_inquiries?.some((month) => month.inquiries > 0) ?? false
+  const dueThisWeek = dashboard?.receivables?.due_this_week_count ?? 0
+  const showLeads = Boolean(dashboard?.summary && dashboard.status_breakdown && dashboard.monthly_inquiries)
+  const showEvents = Boolean(dashboard?.upcoming_events)
+  const showPeople = Boolean(dashboard?.sales_performance)
+  const canOpenProjects = can(profile, 'projects')
 
   return (
     <div className="bahran-dashboard flex min-h-screen">
@@ -259,7 +330,7 @@ export function DashboardPage() {
               <p className="dash-eyebrow">{formatToday()}</p>
               <h1 className="dash-title">Dashboard</h1>
             </div>
-            {dashboard && <span className="dash-scope">{dashboard.scope === 'all' ? 'All sales' : 'My leads'}</span>}
+            {dashboard?.summary && <span className="dash-scope">{dashboard.scope === 'all' ? 'All sales' : 'My leads'}</span>}
           </div>
 
           <section className="dash-filters" aria-label="Filter lead figures by inquiry date">
@@ -275,7 +346,12 @@ export function DashboardPage() {
               <span aria-hidden="true">→</span>
               <EthiopianDateInput aria-label="Through date" value={endDate} min={startDate || undefined} onChange={(iso) => { setEndDate(iso); setPreset(null) }} showChurchDays={false} placeholder="Today" />
             </div>
-            <p className="dash-filter-note">Lead figures follow the inquiry date · money and events are as of today</p>
+            <p className="dash-filter-note">{[
+              dashboard?.summary && 'Leads follow the inquiry date',
+              dashboard?.financials && 'income follows the invoice date, expenses the date paid',
+              dashboard?.receivables && 'receivables are as of today',
+              dashboard?.active_events !== null && dashboard?.active_events !== undefined && !dashboard?.summary && 'events follow the event date',
+            ].filter(Boolean).join(' · ')}</p>
           </section>
 
           {error && (
@@ -293,7 +369,9 @@ export function DashboardPage() {
                 {tiles.map((tile) => <StatTileCard key={tile.label} tile={tile} />)}
               </section>
 
-              <section className="dash-grid dash-grid--trend">
+              {dashboard.financials && <ProfitCard financials={dashboard.financials} />}
+
+              {showLeads && <section className="dash-grid dash-grid--trend">
                 <article className="dash-card">
                   <div className="dash-card-head">
                     <div>
@@ -311,7 +389,7 @@ export function DashboardPage() {
                   {!hasTrend ? <p className="dash-empty">No inquiries in this range yet.</p> : trendView === 'chart' ? (
                     <div className="dash-chart">
                       <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={dashboard.monthly_inquiries} barGap={2} barCategoryGap="28%" margin={{ top: 8, right: 4, bottom: 0, left: -18 }}>
+                        <BarChart data={dashboard.monthly_inquiries ?? []} barGap={2} barCategoryGap="28%" margin={{ top: 8, right: 4, bottom: 0, left: -18 }}>
                           <CartesianGrid vertical={false} stroke="#efede5" />
                           <XAxis dataKey="month" tickFormatter={(value: string) => monthLabel(value)} tickLine={false} axisLine={{ stroke: '#e5e1d6' }} tick={{ fill: '#77766c', fontSize: 12 }} />
                           <YAxis allowDecimals={false} tickLine={false} axisLine={false} tick={{ fill: '#9a978b', fontSize: 12 }} width={44} />
@@ -324,7 +402,7 @@ export function DashboardPage() {
                   ) : (
                     <table className="dash-table dash-table--compact">
                       <thead><tr><th scope="col">Month</th><th scope="col" className="o-num">Inquiries</th><th scope="col" className="o-num">Won</th></tr></thead>
-                      <tbody>{dashboard.monthly_inquiries.map((month) => (
+                      <tbody>{(dashboard.monthly_inquiries ?? []).map((month) => (
                         <tr key={month.month}><td>{monthLabel(month.month, 'long')}</td><td className="o-num">{month.inquiries}</td><td className="o-num">{month.won}</td></tr>
                       ))}</tbody>
                     </table>
@@ -336,9 +414,9 @@ export function DashboardPage() {
                     <h2>Pipeline by stage</h2>
                     <Link to="/dashboard/leads" className="dash-link">Open board</Link>
                   </div>
-                  {dashboard.summary.total_leads === 0 ? <p className="dash-empty">No leads in this range yet.</p> : (
+                  {dashboard.summary?.total_leads === 0 ? <p className="dash-empty">No leads in this range yet.</p> : (
                     <ul className="dash-stages">
-                      {dashboard.status_breakdown.map((item) => (
+                      {(dashboard.status_breakdown ?? []).map((item) => (
                         <li key={item.status} className={item.count === 0 ? 'is-zero' : ''}>
                           <span className="dash-stage-label">{item.label}</span>
                           <span className="dash-stage-track">
@@ -350,15 +428,15 @@ export function DashboardPage() {
                     </ul>
                   )}
                 </article>
-              </section>
+              </section>}
 
-              <section className="dash-grid dash-grid--even">
-                <article className="dash-card">
+              {(showEvents || showPeople) && <section className={`dash-grid${showEvents && showPeople ? ' dash-grid--even' : ''}`}>
+                {showEvents && <article className="dash-card">
                   <div className="dash-card-head">
                     <h2>Upcoming events</h2>
-                    {dueThisWeek > 0 && <span className="dash-chip is-warning"><HugeiconsIcon icon={Alert02Icon} className="size-3.5" strokeWidth={2} aria-hidden="true" />{formatMoney(dashboard.receivables.due_this_week_total)} due this week</span>}
+                    {dueThisWeek > 0 && <span className="dash-chip is-warning"><HugeiconsIcon icon={Alert02Icon} className="size-3.5" strokeWidth={2} aria-hidden="true" />{formatMoney(dashboard.receivables?.due_this_week_total ?? 0)} due this week</span>}
                   </div>
-                  {dashboard.upcoming_events.length === 0 ? <p className="dash-empty">No upcoming events. Won leads appear here once their event is created.</p> : (
+                  {!dashboard.upcoming_events?.length ? <p className="dash-empty">No upcoming events. Won leads appear here once their event is created.</p> : (
                     <ul className="dash-events">
                       {dashboard.upcoming_events.map((event) => {
                         const progress = event.tasks_total ? Math.round((event.tasks_done / event.tasks_total) * 100) : 0
@@ -371,7 +449,7 @@ export function DashboardPage() {
                             </div>
                             <div className="dash-event-main">
                               <div className="dash-event-top">
-                                {event.project_id
+                                {event.project_id && canOpenProjects
                                   ? <Link to={`/dashboard/projects/${event.project_id}`}>{event.name}</Link>
                                   : <strong>{event.name}</strong>}
                                 <span className={event.days_away < 14 ? 'is-soon' : ''}>{daysAwayLabel(event.days_away)}</span>
@@ -382,7 +460,7 @@ export function DashboardPage() {
                                   <span style={{ width: `${progress}%` }} />
                                 </span>
                                 <span>{event.tasks_total ? `${event.tasks_done}/${event.tasks_total} tasks` : 'No tasks yet'}</span>
-                                {event.invoice_count === 0
+                                {!dashboard.receivables ? null : event.invoice_count === 0
                                   ? <span className="dash-chip">No invoice</span>
                                   : event.unpaid_count > 0
                                     ? <span className="dash-chip is-warning">{event.unpaid_count} unpaid</span>
@@ -394,9 +472,9 @@ export function DashboardPage() {
                       })}
                     </ul>
                   )}
-                </article>
+                </article>}
 
-                <article className="dash-card">
+                {showPeople && <article className="dash-card">
                   <div className="dash-card-head">
                     <h2>Sales performance</h2>
                     <div className="dash-legend">
@@ -404,7 +482,7 @@ export function DashboardPage() {
                       <span><i style={{ background: WON_FILL }} />Won</span>
                     </div>
                   </div>
-                  {dashboard.sales_performance.length === 0 ? <p className="dash-empty">No sales activity to show yet.</p> : (
+                  {!dashboard.sales_performance?.length ? <p className="dash-empty">No sales activity to show yet.</p> : (
                     <ul className="dash-people">
                       {dashboard.sales_performance.map((person) => (
                         <li key={person.sales_person_id}>
@@ -421,10 +499,10 @@ export function DashboardPage() {
                       ))}
                     </ul>
                   )}
-                </article>
-              </section>
+                </article>}
+              </section>}
 
-              <section className="dash-card dash-card--flush">
+              {dashboard.recent_leads && <section className="dash-card dash-card--flush">
                 <div className="dash-card-head">
                   <h2>Recent inquiries</h2>
                   <Link to="/dashboard/leads" className="dash-link">All leads</Link>
@@ -447,7 +525,7 @@ export function DashboardPage() {
                     </table>
                   </div>
                 )}
-              </section>
+              </section>}
             </div>
           )}
         </div>

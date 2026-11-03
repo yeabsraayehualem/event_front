@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { apiBaseUrl } from '@/lib/api'
+import { clearProfileCache } from '@/lib/use-profile'
 
 type LoginCredentials = {
   phone: string
@@ -54,6 +55,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       // Clear local state and redirect even if the API cannot be reached.
     } finally {
       localStorage.removeItem('auth_token')
+      clearProfileCache()
       set({ loginResponse: null, error: null, isLoading: false })
     }
   },
@@ -89,6 +91,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       }
 
       // Keep the complete backend response in app state after the session is confirmed.
+      clearProfileCache()
       set({ loginResponse: result })
 
       const token = result.token ?? result.access_token

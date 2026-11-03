@@ -6,12 +6,17 @@ import {
 } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon, type IconSvgElement } from '@hugeicons/react'
 import { cn } from 'cn'
+import { UserMenu } from '@/components/user-menu'
+import { visibleNavigation } from '@/components/admin-navigation'
+import { useProfileStatus } from '@/lib/use-profile'
 
 export type SideNavItem = {
   menu: string
   icon: IconSvgElement
   route?: string
   exact?: boolean
+  /** Access-table module this page belongs to; hidden when the role can't view it. */
+  module?: string
   children?: SideNavItem[]
 }
 
@@ -149,6 +154,9 @@ export function SideNav({
   title = 'Event Planner',
   className,
 }: SideNavProps) {
+  const { profile, loading } = useProfileStatus()
+  // Show nothing until we know the role, so people never see menus they can't open.
+  const shown = loading ? [] : visibleNavigation(items, profile)
   return (
     <aside
       aria-label="Main navigation"
@@ -166,11 +174,12 @@ export function SideNav({
 
       <nav className="min-h-0 flex-1 overflow-y-auto">
         <ul className="space-y-1">
-          {items.map((item) => (
+          {shown.map((item) => (
             <SideNavEntry key={`${item.menu}-${item.route ?? ''}`} item={item} />
           ))}
         </ul>
       </nav>
+      <UserMenu />
     </aside>
   )
 }
