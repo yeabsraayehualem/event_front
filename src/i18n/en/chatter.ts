@@ -1,0 +1,25 @@
+const chatter = {
+  label: 'Activity and change log',
+  logNote: 'Log note',
+  entries_one: '{{count}} entry',
+  entries_other: '{{count}} entries',
+  refresh: 'Refresh activity',
+  refreshTitle: 'Refresh',
+  placeholder: 'Log an internal note…',
+  noteLabel: 'Internal note',
+  logging: 'Logging…',
+  log: 'Log',
+  hint: 'Ctrl + Enter to log · notes are internal only',
+  loading: 'Loading activity…',
+  empty: 'No activity yet. Changes and notes on this record will appear here.',
+  system: 'System',
+  note: 'Note',
+  none: 'None',
+  changedTo: 'changed to',
+  today: 'Today',
+  yesterday: 'Yesterday',
+  loadFailed: 'Could not load the activity history.',
+  postFailed: 'Could not log this note.',
+}
+
+export default chatter

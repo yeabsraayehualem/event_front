@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { AdminShell } from '@/components/admin/admin-shell'
 import { apiRequest } from '@/lib/api-request'
@@ -7,13 +8,14 @@ import { formatMoney } from '../procurement/types'
 import type { Expense, ExpenseOptions } from './types'
 
 const SCOPES = [
-  { value: '', label: 'All' },
-  { value: 'event', label: 'Event costs' },
-  { value: 'overhead', label: 'Overhead' },
-  { value: 'bills', label: 'Vendor bills' },
-]
+  { value: '', key: 'all' },
+  { value: 'event', key: 'event' },
+  { value: 'overhead', key: 'overhead' },
+  { value: 'bills', key: 'bills' },
+] as const
 
 export function ExpensesPage() {
+  const { t } = useTranslation('expenses')
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const scope = searchParams.get('scope') ?? ''
@@ -26,13 +28,13 @@ export function ExpensesPage() {
   useEffect(() => {
     const controller = new AbortController()
     Promise.all([
-      apiRequest<Expense[]>('/finance/expenses/', { signal: controller.signal, fallback: 'Could not load expenses.' }),
-      apiRequest<ExpenseOptions>('/finance/expense-options/', { signal: controller.signal, fallback: 'Could not load expense categories.' }),
+      apiRequest<Expense[]>('/finance/expenses/', { signal: controller.signal, fallback: t('loadFailed') }),
+      apiRequest<ExpenseOptions>('/finance/expense-options/', { signal: controller.signal, fallback: t('loadCategories') }),
     ])
       .then(([loaded, options]) => { setExpenses(loaded); setCategories(options.categories) })
       .catch((loadError: unknown) => { if (loadError instanceof Error && loadError.name !== 'AbortError') setError(loadError.message) })
     return () => controller.abort()
-  }, [])
+  }, [t])
 
   const setFilter = (name: string, value: string) => {
     const next = new URLSearchParams(searchParams)
@@ -55,25 +57,25 @@ export function ExpensesPage() {
       <div className="dash">
         <div className="dash-header">
           <div>
-            <p className="dash-eyebrow">Finance</p>
-            <h1 className="dash-title">Expenses</h1>
+            <p className="dash-eyebrow">{t('eyebrow')}</p>
+            <h1 className="dash-title">{t('title')}</h1>
           </div>
-          <Link to="/dashboard/expenses/new" className="o-btn o-btn-primary">Record expense</Link>
+          <Link to="/dashboard/expenses/new" className="o-btn o-btn-primary">{t('record')}</Link>
         </div>
 
-        <div className="proc-chips" role="group" aria-label="Filter expenses">
+        <div className="proc-chips" role="group" aria-label={t('filterLabel')}>
           {SCOPES.map((item) => (
-            <button key={item.value} type="button" className={scope === item.value ? 'is-active' : ''} onClick={() => setFilter('scope', item.value)}>{item.label}</button>
+            <button key={item.value} type="button" className={scope === item.value ? 'is-active' : ''} onClick={() => setFilter('scope', item.value)}>{t(`scopes.${item.key}`)}</button>
           ))}
         </div>
 
         <div className="cat-toolbar">
-          <input type="search" className="cat-search" placeholder="Search description, event, vendor, receipt…" aria-label="Search expenses" value={query} onChange={(event) => setQuery(event.target.value)} />
-          <select className="o-input proc-select" aria-label="Category" value={category} onChange={(event) => setFilter('category', event.target.value)}>
-            <option value="">All categories</option>
+          <input type="search" className="cat-search" placeholder={t('searchPlaceholder')} aria-label={t('searchLabel')} value={query} onChange={(event) => setQuery(event.target.value)} />
+          <select className="o-input proc-select" aria-label={t('category')} value={category} onChange={(event) => setFilter('category', event.target.value)}>
+            <option value="">{t('allCategories')}</option>
             {categories.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
           </select>
-          {expenses && <span className="dash-scope">{shown.length} · {formatMoney(shownTotal)} excl. VAT</span>}
+          {expenses && <span className="dash-scope">{t('totalExclVat', { count: shown.length, amount: formatMoney(shownTotal) })}</span>}
         </div>
 
         {error && <p className="dashboard-message dashboard-message--error" role="alert">{error}</p>}
@@ -81,12 +83,12 @@ export function ExpensesPage() {
 
         {expenses && (
           <section className="dash-card dash-card--flush">
-            {shown.length === 0 ? <p className="dash-empty">{expenses.length ? 'No expenses match these filters.' : 'No expenses recorded yet.'}</p> : (
+            {shown.length === 0 ? <p className="dash-empty">{expenses.length ? t('noMatch') : t('empty')}</p> : (
               <div className="overflow-x-auto">
                 <table className="dash-table">
                   <thead><tr>
-                    <th scope="col">Date</th><th scope="col">Description</th><th scope="col">Category</th>
-                    <th scope="col">Charged to</th><th scope="col" className="o-num">Excl. VAT</th><th scope="col" className="o-num">Paid</th>
+                    <th scope="col">{t('columns.date')}</th><th scope="col">{t('columns.description')}</th><th scope="col">{t('columns.category')}</th>
+                    <th scope="col">{t('columns.chargedTo')}</th><th scope="col" className="o-num">{t('columns.exclVat')}</th><th scope="col" className="o-num">{t('columns.paid')}</th>
                   </tr></thead>
                   <tbody>
                     {shown.map((expense) => (
@@ -98,7 +100,7 @@ export function ExpensesPage() {
                         </td>
                         <td><span className="o-tag proc-tag">{expense.category_name}</span></td>
                         <td>
-                          {expense.event_name ?? <span className="dash-muted">Overhead</span>}
+                          {expense.event_name ?? <span className="dash-muted">{t('overhead')}</span>}
                           {expense.purchase_order_reference && <div className="cat-muted">{expense.purchase_order_reference}</div>}
                         </td>
                         <td className="o-num">{formatMoney(expense.amount)}</td>

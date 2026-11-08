@@ -7,16 +7,19 @@ import { Input } from '@/components/ui/input'
 import { useAuthStore } from '@/stores/auth-store'
 import { landingPath } from '@/components/admin-navigation'
 import type { Profile } from '@/lib/use-profile'
+import { useTranslation } from 'react-i18next'
 
+// Messages are translation keys, resolved when shown so they follow the current language.
 const loginSchema = z.object({
-  phone: z.string().min(1, 'Phone number is required'),
-  password: z.string().min(1, 'Password is required'),
+  phone: z.string().min(1, 'phoneRequired'),
+  password: z.string().min(1, 'passwordRequired'),
 })
 
 type LoginForm = z.infer<typeof loginSchema>
 
 export function LoginForm() {
   const navigate = useNavigate()
+  const { t } = useTranslation('auth')
   const { error: serverError, isLoading, login, clearError } = useAuthStore()
 
   const {
@@ -50,7 +53,7 @@ export function LoginForm() {
             htmlFor="phone"
             className="login-field-label"
           >
-            Staff phone number
+            {t('phone')}
           </label>
           <Input
             id="phone"
@@ -64,7 +67,7 @@ export function LoginForm() {
           />
           {errors.phone && (
             <p id="phone-error" className="login-field-error">
-              {errors.phone.message}
+              {t(errors.phone.message as 'phoneRequired')}
             </p>
           )}
         </div>
@@ -73,13 +76,13 @@ export function LoginForm() {
             htmlFor="password"
             className="login-field-label"
           >
-            Password
+            {t('password')}
           </label>
           <Input
             id="password"
             type="password"
             autoComplete="current-password"
-            placeholder="Password"
+            placeholder={t('password')}
             aria-invalid={Boolean(errors.password)}
             aria-describedby={errors.password ? 'password-error' : undefined}
             className="staff-login-input"
@@ -87,7 +90,7 @@ export function LoginForm() {
           />
           {errors.password && (
             <p id="password-error" className="login-field-error">
-              {errors.password.message}
+              {t(errors.password.message as 'passwordRequired')}
             </p>
           )}
         </div>
@@ -107,7 +110,7 @@ export function LoginForm() {
         className="staff-login-submit"
         disabled={isLoading}
       >
-        {isLoading ? 'Signing in…' : 'Sign in'}
+        {isLoading ? t('signingIn') : t('signIn')}
       </Button>
     </form>
   )

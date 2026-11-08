@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
+import { useTranslation } from 'react-i18next'
 import { AccessLink } from '@/components/admin/access-link'
 import { can, useProfile } from '@/lib/use-profile'
 import { Link, useNavigate, useParams } from 'react-router-dom'
@@ -9,6 +10,8 @@ import { useAuthStore } from '@/stores/auth-store'
 import { RecordFormView } from '@/components/admin/record-form-view'
 import { formatDualDate } from '@/lib/ethiopian-calendar'
 import { fetchCsrfToken } from '@/lib/csrf'
+import { BUDGET_TIERS } from '@/lib/event-options'
+import i18n, { leadStatusLabel } from '@/i18n'
 
 type LeadStatus = 'lead' | 'contacted' | 'consultation_scheduled' | 'quotation_sent' | 'negotiation' | 'won' | 'lost' | 'cancelled'
 type Lead = {
@@ -36,30 +39,26 @@ type Lead = {
   project_ids: number[]
 }
 
-const statuses: { value: LeadStatus; label: string; folded?: boolean }[] = [
-  { value: 'lead', label: 'New' },
-  { value: 'contacted', label: 'Contacted' },
-  { value: 'consultation_scheduled', label: 'Consultation' },
-  { value: 'quotation_sent', label: 'Quotation sent' },
-  { value: 'negotiation', label: 'Negotiation' },
-  { value: 'won', label: 'Won' },
-  { value: 'lost', label: 'Lost', folded: true },
-  { value: 'cancelled', label: 'Cancelled', folded: true },
-]
+const STATUS_VALUES: LeadStatus[] = ['lead', 'contacted', 'consultation_scheduled', 'quotation_sent', 'negotiation', 'won', 'lost', 'cancelled']
+const FOLDED_STATUSES: LeadStatus[] = ['lost', 'cancelled']
 const closedStatuses: LeadStatus[] = ['won', 'lost', 'cancelled']
 
-function formatDate(value: string) {
-  return formatDualDate(value)
+/** Stored budget values are English; show the translated tier when it is one of ours. */
+function budgetLabel(value: string) {
+  const tier = BUDGET_TIERS.find((item) => item.value === value)
+  return tier ? i18n.t(`budgetTiers.${tier.key}`) : value
 }
 
 function responseMessage(body: unknown) {
-  if (typeof body !== 'object' || body === null) return 'We could not save this lead.'
+  const fallback = i18n.t('leads:detail.saveFailed')
+  if (typeof body !== 'object' || body === null) return fallback
   if ('detail' in body && typeof body.detail === 'string') return body.detail
   if ('status' in body && Array.isArray(body.status)) return body.status.join(' ')
-  return 'We could not save this lead.'
+  return fallback
 }
 
 export function LeadDetailPage() {
+  const { t } = useTranslation('leads')
   const { leadId } = useParams()
   const navigate = useNavigate()
   const logout = useAuthStore((state) => state.logout)
@@ -78,6 +77,8 @@ export function LeadDetailPage() {
   const [saved, setSaved] = useState(false)
   const [completing, setCompleting] = useState(false)
   const [chatterKey, setChatterKey] = useState(0)
+
+  const statuses = STATUS_VALUES.map((value) => ({ value, label: leadStatusLabel(value), folded: FOLDED_STATUSES.includes(value) }))
 
   const resetDraft = useCallback((data: Lead) => {
     setStatus(data.status)
@@ -103,7 +104,7 @@ export function LeadDetailPage() {
         navigate('/login', { replace: true })
         return
       }
-      if (response.status === 404) throw new Error('This lead is no longer available in your sales view.')
+      if (response.status === 404) throw new Error(i18n.t('leads:detail.gone'))
       if (!response.ok) throw new Error(responseMessage(body))
       const data = body as Lead
       setLead(data)
@@ -163,7 +164,7 @@ export function LeadDetailPage() {
       setSaved(true)
       setChatterKey((key) => key + 1)
     } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : 'We could not save this lead.')
+      setError(saveError instanceof Error ? saveError.message : t('detail.saveFailed'))
     } finally {
       setSaving(false)
     }
@@ -180,9 +181,8 @@ export function LeadDetailPage() {
   )
 
   function changeStatus(value: string) {
-    const selected = statuses.find((option) => option.value === value)
-    if (selected) {
-      setStatus(selected.value)
+    if ((STATUS_VALUES as string[]).includes(value)) {
+      setStatus(value as LeadStatus)
       setSaved(false)
     }
   }
@@ -203,15 +203,15 @@ export function LeadDetailPage() {
       await loadLead(new AbortController().signal)
       setChatterKey((key) => key + 1)
     } catch (completeError) {
-      setError(completeError instanceof Error ? completeError.message : 'We could not create the event.')
+      setError(completeError instanceof Error ? completeError.message : t('record.createFailed'))
     } finally {
       setCompleting(false)
     }
   }
 
-  const ribbon = lead?.status === 'won' ? { label: 'Won', tone: 'success' as const }
-    : lead?.status === 'lost' ? { label: 'Lost', tone: 'danger' as const }
-    : lead?.status === 'cancelled' ? { label: 'Cancelled', tone: 'danger' as const }
+  const ribbon = lead?.status === 'won' ? { label: leadStatusLabel('won'), tone: 'success' as const }
+    : lead?.status === 'lost' ? { label: leadStatusLabel('lost'), tone: 'danger' as const }
+    : lead?.status === 'cancelled' ? { label: leadStatusLabel('cancelled'), tone: 'danger' as const }
     : null
   const packageContents = lead?.package?.contents ?? []
   const eventId = lead?.event_id ?? null
@@ -221,21 +221,21 @@ export function LeadDetailPage() {
 
   return (
     <div className="bahran-dashboard flex min-h-screen">
-      <SideNav items={adminNavigationItems} title="Bahran Events" />
+      <SideNav items={adminNavigationItems} title="Hadafe Nefs" />
       <main className="bahran-dashboard-main min-w-0 flex-1 px-5 py-8 sm:px-8 lg:px-10">
         <div className="mx-auto max-w-7xl">
-          {loading && !lead && <div className="o-form-loading" role="status"><span /><span /><span /></div>}
-          {error && <section className="dashboard-message dashboard-message--error" role="alert"><div><strong>There’s a problem with this lead.</strong><p>{error}</p></div>{!lead && <button type="button" onClick={() => { const controller = new AbortController(); void loadLead(controller.signal) }}>Try again <span>↻</span></button>}</section>}
-          {!lead && !loading && !error && <p className="dashboard-message"><Link to="/dashboard/leads">Back to leads</Link></p>}
+          {loading && !lead && <div className="o-form-loading" role="status" aria-label={t('detail.loading')}><span /><span /><span /></div>}
+          {error && <section className="dashboard-message dashboard-message--error" role="alert"><div><strong>{t('detail.problem')}</strong><p>{error}</p></div>{!lead && <button type="button" onClick={() => { const controller = new AbortController(); void loadLead(controller.signal) }}>{t('actions.retry', { ns: 'common' })} <span>↻</span></button>}</section>}
+          {!lead && !loading && !error && <p className="dashboard-message"><Link to="/dashboard/leads">{t('detail.back')}</Link></p>}
 
           {lead && (
             <RecordFormView
-              modelName="Lead"
+              modelName={t('model')}
               title={lead.customer.name}
-              subtitle={`Inquiry received ${formatDate(lead.date)}`}
+              subtitle={t('detail.received', { date: formatDualDate(lead.date) })}
               recordId={lead.id}
               backHref="/dashboard/leads"
-              backLabel="Leads"
+              backLabel={t('detail.allLeads')}
               ribbon={ribbon}
               status={status}
               statusOptions={statuses}
@@ -243,124 +243,124 @@ export function LeadDetailPage() {
               actionSlot={<>
                 {missingWonRecords && (
                   <button type="button" className="o-btn o-btn-primary" disabled={completing} onClick={() => void completeWonLead()}>
-                    {completing ? 'Creating…' : 'Create event, invoice & project'}
+                    {completing ? t('form.creating') : t('record.createMissing')}
                   </button>
                 )}
                 {eventId && can(profile, 'invoices', 'create') && (
-                  <Link to={`/dashboard/invoices/new?event=${eventId}`} className="o-btn o-btn-secondary">New invoice</Link>
+                  <Link to={`/dashboard/invoices/new?event=${eventId}`} className="o-btn o-btn-secondary">{t('record.newInvoice')}</Link>
                 )}
                 {status === 'won' && lead.status !== 'won' && (
-                  <span className="o-statusbar-hint">Saving will create the event, a deposit invoice and a project.</span>
+                  <span className="o-statusbar-hint">{t('record.wonHint')}</span>
                 )}
                 {!closedStatuses.includes(status) && (
-                  <button type="button" className="o-btn o-btn-secondary" onClick={() => changeStatus('won')}>Mark won</button>
+                  <button type="button" className="o-btn o-btn-secondary" onClick={() => changeStatus('won')}>{t('record.markWon')}</button>
                 )}
                 {!closedStatuses.includes(status) && (
-                  <button type="button" className="o-btn o-btn-secondary" onClick={() => changeStatus('lost')}>Mark lost</button>
+                  <button type="button" className="o-btn o-btn-secondary" onClick={() => changeStatus('lost')}>{t('record.markLost')}</button>
                 )}
                 {closedStatuses.includes(status) && status !== lead.status && (
-                  <button type="button" className="o-btn o-btn-secondary" onClick={() => changeStatus(lead.status)}>Undo</button>
+                  <button type="button" className="o-btn o-btn-secondary" onClick={() => changeStatus(lead.status)}>{t('record.undo')}</button>
                 )}
               </>}
               headerAside={<>
                 <div className="o-stat-button">
                   <span className="o-stat-icon" aria-hidden="true">✦</span>
-                  <span><strong>{lead.guest_count ?? '—'}</strong><small>Guests</small></span>
+                  <span><strong>{lead.guest_count ?? '—'}</strong><small>{t('form.guestsShort')}</small></span>
                 </div>
                 <div className={`o-stat-button${eventId ? '' : ' is-muted'}`}>
                   <span className="o-stat-icon" aria-hidden="true">◈</span>
-                  <span><strong>{eventId ? `#${eventId}` : 'None'}</strong><small>Event</small></span>
+                  <span><strong>{eventId ? `#${eventId}` : t('states.none', { ns: 'common' })}</strong><small>{t('record.event')}</small></span>
                 </div>
                 {invoiceIds.length > 0 && (
                   <AccessLink module="invoices" to={invoiceIds.length === 1 ? `/dashboard/invoices/${invoiceIds[0]}` : '/dashboard/invoices'} className="o-stat-button">
                     <span className="o-stat-icon" aria-hidden="true">Br</span>
-                    <span><strong>{invoiceIds.length}</strong><small>{invoiceIds.length === 1 ? 'Invoice' : 'Invoices'}</small></span>
+                    <span><strong>{invoiceIds.length}</strong><small>{t('record.invoice', { count: invoiceIds.length })}</small></span>
                   </AccessLink>
                 )}
                 {projectIds.length > 0 && (
                   <AccessLink module="projects" to={`/dashboard/projects/${projectIds[0]}`} className="o-stat-button">
                     <span className="o-stat-icon" aria-hidden="true">☰</span>
-                    <span><strong>{projectIds.length}</strong><small>{projectIds.length === 1 ? 'Project' : 'Projects'}</small></span>
+                    <span><strong>{projectIds.length}</strong><small>{t('record.project', { count: projectIds.length })}</small></span>
                   </AccessLink>
                 )}
               </>}
               headerFields={[
-                { name: 'phone', label: 'Phone', value: lead.customer.phone, type: 'tel', readOnly: true },
-                { name: 'plan_date', label: 'Event date', type: 'date', value: planDate, required: true },
-                { name: 'plan', label: 'Event plan', value: lead.plan.name, readOnly: true },
+                { name: 'phone', label: t('form.phone'), value: lead.customer.phone, type: 'tel', readOnly: true },
+                { name: 'plan_date', label: t('form.eventDate'), type: 'date', value: planDate, required: true },
+                { name: 'plan', label: t('form.eventPlan'), value: lead.plan.name, readOnly: true },
                 {
-                  name: 'event_type_id', label: 'Event type', type: 'select', value: eventTypeId,
+                  name: 'event_type_id', label: t('form.eventType'), type: 'select', value: eventTypeId,
                   readOnly: !lead.plan.event_types.length,
-                  placeholder: 'This plan has no event types yet',
-                  options: [{ value: '', label: 'Select an occasion' }, ...lead.plan.event_types.map((item) => ({ value: String(item.id), label: item.name }))],
+                  placeholder: t('form.noEventTypes'),
+                  options: [{ value: '', label: t('form.selectOccasion') }, ...lead.plan.event_types.map((item) => ({ value: String(item.id), label: item.name }))],
                 },
                 {
                   name: 'assigned_sales_person_id',
-                  label: 'Sales person',
+                  label: t('form.salesPerson'),
                   type: 'select',
                   value: salesPersonId,
                   displayValue: lead.can_assign_sales ? undefined : (lead.assigned_sales_person ?? ''),
-                  placeholder: 'Unassigned',
+                  placeholder: t('form.unassigned'),
                   readOnly: !lead.can_assign_sales,
                   options: [
-                    { value: '', label: 'Unassigned' },
+                    { value: '', label: t('form.unassigned') },
                     ...lead.available_sales_people.map((person) => ({ value: String(person.id), label: person.name })),
                   ],
                 },
                 {
                   name: 'package_id',
-                  label: 'Package',
+                  label: t('form.package'),
                   type: 'select',
                   value: packageId,
                   options: [
-                    { value: '', label: 'No package selected' },
+                    { value: '', label: t('detail.noPackage') },
                     ...lead.plan.packages.map((item) => ({ value: String(item.id), label: item.name })),
                   ],
                 },
-                { name: 'location', label: 'Venue', value: location, placeholder: 'To be confirmed' },
+                { name: 'location', label: t('form.venue'), value: location, placeholder: t('form.toBeConfirmed') },
               ]}
               tabs={[
                 {
                   id: 'celebration',
-                  label: 'Celebration',
+                  label: t('form.celebrationTab'),
                   sections: [
                     {
-                      title: 'From the inquiry',
+                      title: t('record.fromInquiry'),
                       fields: [
-                        { name: 'guest_count', label: 'Estimated guests', value: lead.guest_count, readOnly: true },
-                        { name: 'budget_tier', label: 'Budget range', value: lead.budget_tier, readOnly: true },
+                        { name: 'guest_count', label: t('form.guests'), value: lead.guest_count, readOnly: true },
+                        { name: 'budget_tier', label: t('form.budget'), value: budgetLabel(lead.budget_tier), readOnly: true },
                       ],
                     },
                     {
-                      title: 'Requirements',
+                      title: t('form.requirements'),
                       fields: [
-                        { name: 'requirements', label: 'Customer notes', value: lead.requirements, fullWidth: true, readOnly: true, placeholder: 'No special requirements shared.' },
+                        { name: 'requirements', label: t('form.customerNotes'), value: lead.requirements, fullWidth: true, readOnly: true, placeholder: t('record.noRequirements') },
                       ],
                     },
                   ],
                 },
                 {
                   id: 'notes',
-                  label: 'Internal notes',
+                  label: t('form.internalNotes'),
                   content: (
                     <textarea
                       className="o-input o-notes-editor"
-                      aria-label="Internal notes"
+                      aria-label={t('form.internalNotes')}
                       value={notes}
                       onChange={(event) => { setNotes(event.target.value); setSaved(false) }}
-                      placeholder="Add discussion notes or the next step…"
+                      placeholder={t('detail.notesPlaceholder')}
                     />
                   ),
                 },
                 {
                   id: 'package',
-                  label: 'Package contents',
+                  label: t('record.packageContents'),
                   badge: packageContents.length || undefined,
                   content: packageContents.length ? (
                     <ul className="o-content-list">
                       {packageContents.map((item) => <li key={item.id}><strong>{item.name}</strong>{item.description && <span>{item.description}</span>}</li>)}
                     </ul>
-                  ) : <p className="o-empty-page">{lead.package ? 'This package has no listed contents.' : 'Choose a package to see what it includes.'}</p>,
+                  ) : <p className="o-empty-page">{lead.package ? t('record.noContents') : t('record.choosePackage')}</p>,
                 },
               ]}
               onFieldChange={(name, value) => {

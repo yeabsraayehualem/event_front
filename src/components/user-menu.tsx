@@ -6,13 +6,12 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { apiRequest } from '@/lib/api-request'
 import { useProfile } from '@/lib/use-profile'
 import { useAuthStore } from '@/stores/auth-store'
+import { useTranslation } from 'react-i18next'
+import { roleLabel } from '@/i18n'
 
-const ROLE_LABELS: Record<string, string> = {
-  super: 'Super user', admin: 'Admin', sales: 'Sales', finance: 'Finance', pm: 'Project management',
-  hr: 'HR', stock: 'Stock', staff: 'Staff',
-}
 
 function ChangePasswordDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
+  const { t } = useTranslation()
   const [current, setCurrent] = useState('')
   const [next, setNext] = useState('')
   const [confirm, setConfirm] = useState('')
@@ -27,17 +26,17 @@ function ChangePasswordDialog({ open, onOpenChange }: { open: boolean; onOpenCha
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (next !== confirm) { setError('The new passwords don’t match.'); return }
+    if (next !== confirm) { setError(t('userMenu.mismatch')); return }
     setSaving(true)
     setError('')
     try {
       await apiRequest('/user/profile/password/', {
-        method: 'POST', body: { current_password: current, new_password: next }, fallback: 'Could not change your password.',
-        labels: { current_password: 'Current password', new_password: 'New password' },
+        method: 'POST', body: { current_password: current, new_password: next }, fallback: t('userMenu.changeFailed'),
+        labels: { current_password: t('userMenu.currentPassword'), new_password: t('userMenu.newPassword') },
       })
       setDone(true)
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : 'Could not change your password.')
+      setError(submitError instanceof Error ? submitError.message : t('userMenu.changeFailed'))
     } finally {
       setSaving(false)
     }
@@ -47,18 +46,18 @@ function ChangePasswordDialog({ open, onOpenChange }: { open: boolean; onOpenCha
     <Dialog open={open} onOpenChange={close}>
       <DialogContent className="usr-dialog">
         <DialogHeader>
-          <DialogTitle>Change password</DialogTitle>
-          <DialogDescription>{done ? 'Your password has been changed.' : 'At least 8 characters, and not only numbers.'}</DialogDescription>
+          <DialogTitle>{t('userMenu.changePassword')}</DialogTitle>
+          <DialogDescription>{done ? t('userMenu.passwordChanged') : t('userMenu.passwordRule')}</DialogDescription>
         </DialogHeader>
         {done ? (
-          <button type="button" className="o-btn o-btn-primary" onClick={() => close(false)}>Done</button>
+          <button type="button" className="o-btn o-btn-primary" onClick={() => close(false)}>{t('actions.done')}</button>
         ) : (
           <form className="usr-dialog-form" onSubmit={(event) => void submit(event)}>
-            <label>Current password<input className="o-input" type="password" autoComplete="current-password" required value={current} onChange={(event) => setCurrent(event.target.value)} /></label>
-            <label>New password<input className="o-input" type="password" autoComplete="new-password" required minLength={8} value={next} onChange={(event) => setNext(event.target.value)} /></label>
-            <label>Repeat new password<input className="o-input" type="password" autoComplete="new-password" required value={confirm} onChange={(event) => setConfirm(event.target.value)} /></label>
+            <label>{t('userMenu.currentPassword')}<input className="o-input" type="password" autoComplete="current-password" required value={current} onChange={(event) => setCurrent(event.target.value)} /></label>
+            <label>{t('userMenu.newPassword')}<input className="o-input" type="password" autoComplete="new-password" required minLength={8} value={next} onChange={(event) => setNext(event.target.value)} /></label>
+            <label>{t('userMenu.repeatPassword')}<input className="o-input" type="password" autoComplete="new-password" required value={confirm} onChange={(event) => setConfirm(event.target.value)} /></label>
             {error && <p className="usr-dialog-error" role="alert">{error}</p>}
-            <button type="submit" className="o-btn o-btn-primary" disabled={saving}>{saving ? 'Saving…' : 'Change password'}</button>
+            <button type="submit" className="o-btn o-btn-primary" disabled={saving}>{saving ? t('actions.saving') : t('userMenu.changePassword')}</button>
           </form>
         )}
       </DialogContent>
@@ -72,6 +71,7 @@ export function UserMenu() {
   const logout = useAuthStore((state) => state.logout)
   const navigate = useNavigate()
   const [changing, setChanging] = useState(false)
+  const { t } = useTranslation()
   if (!profile) return null
   const name = [profile.first_name, profile.last_name].filter(Boolean).join(' ') || profile.phone
   const initials = name.split(/\s+/).slice(0, 2).map((part) => part[0]?.toUpperCase()).join('')
@@ -82,14 +82,14 @@ export function UserMenu() {
         <span className="side-user-avatar" aria-hidden="true">{initials}</span>
         <span className="side-user-text">
           <strong>{name}</strong>
-          <small>{ROLE_LABELS[profile.role] ?? profile.role}</small>
+          <small>{roleLabel(profile.role)}</small>
         </span>
       </div>
       <div className="side-user-actions">
-        <button type="button" onClick={() => setChanging(true)} title="Change password" aria-label="Change password">
+        <button type="button" onClick={() => setChanging(true)} title={t('userMenu.changePassword')} aria-label={t('userMenu.changePassword')}>
           <HugeiconsIcon icon={SquareLock02Icon} size={17} strokeWidth={1.8} />
         </button>
-        <button type="button" onClick={async () => { await logout(); navigate('/login', { replace: true }) }} title="Sign out" aria-label="Sign out">
+        <button type="button" onClick={async () => { await logout(); navigate('/login', { replace: true }) }} title={t('userMenu.signOut')} aria-label={t('userMenu.signOut')}>
           <HugeiconsIcon icon={Logout03Icon} size={17} strokeWidth={1.8} />
         </button>
       </div>

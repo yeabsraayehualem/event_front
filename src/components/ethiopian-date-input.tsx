@@ -1,5 +1,6 @@
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { createPortal } from 'react-dom'
+import { useTranslation } from 'react-i18next'
 import {
   ETHIOPIAN_MONTHS,
   addDays,
@@ -24,6 +25,7 @@ const WEEKDAYS = [
 ]
 
 const toIso = (d: Date) => d.toISOString().slice(0, 10)
+
 const POP_WIDTH = 300
 const POP_GAP = 6
 const VIEWPORT_MARGIN = 8
@@ -59,11 +61,14 @@ export function EthiopianDateInput({
   min,
   max,
   disabled,
-  placeholder = 'Choose a date',
+  placeholder,
   className,
   showChurchDays = true,
   ...rest
 }: Props) {
+  const { t, i18n } = useTranslation()
+  const amharic = i18n.language !== 'en'
+  const text = t('datePicker', { returnObjects: true })
   const autoId = useId()
   const triggerId = id ?? `etdp-${autoId}`
   const selected = parseIsoDate(value)
@@ -191,7 +196,7 @@ export function EthiopianDateInput({
             <small>{formatGregorian(selected)}</small>
           </span>
         ) : (
-          <span className="etdp-placeholder">{placeholder}</span>
+          <span className="etdp-placeholder">{placeholder ?? text.placeholder}</span>
         )}
         <svg className="etdp-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
           <rect x="3.5" y="5" width="17" height="15" rx="2" /><path d="M3.5 10h17M8 3v4M16 3v4" />
@@ -211,19 +216,19 @@ export function EthiopianDateInput({
       />
 
       {open && createPortal(
-        <div className="etdp-pop" role="dialog" aria-label="Choose a date" ref={popRef} style={popStyle}>
+        <div className="etdp-pop" role="dialog" aria-label={text.dialog} ref={popRef} style={popStyle}>
           <div className="etdp-head">
-            <button type="button" className="etdp-nav" onClick={() => step(-1)} aria-label="Previous month">‹</button>
+            <button type="button" className="etdp-nav" onClick={() => step(-1)} aria-label={text.previous}>‹</button>
             <div className="etdp-title">
               <strong lang="am">{ETHIOPIAN_MONTHS[view.month - 1].am} {view.year}</strong>
-              <span>{ETHIOPIAN_MONTHS[view.month - 1].en} {view.year} E.C.</span>
+              {!amharic && <span>{ETHIOPIAN_MONTHS[view.month - 1].en} {view.year} {text.era}</span>}
             </div>
-            <button type="button" className="etdp-nav" onClick={() => step(1)} aria-label="Next month">›</button>
+            <button type="button" className="etdp-nav" onClick={() => step(1)} aria-label={text.next}>›</button>
           </div>
 
           <div className="etdp-grid" role="grid">
             {WEEKDAYS.map((w) => (
-              <span key={w.en} className="etdp-dow" title={w.en} lang="am">{w.am}</span>
+              <span key={w.en} className="etdp-dow" title={amharic ? undefined : w.en} lang="am">{w.am}</span>
             ))}
             {Array.from({ length: leading }, (_, i) => <span key={`pad-${i}`} />)}
             {Array.from({ length: count }, (_, i) => {
@@ -246,7 +251,7 @@ export function EthiopianDateInput({
                   ].filter(Boolean).join(' ')}
                   disabled={disabledDay}
                   onClick={() => pick({ year: view.year, month: view.month, day })}
-                  aria-label={`${ETHIOPIAN_MONTHS[view.month - 1].en} ${day}, ${view.year} E.C. (${formatGregorian(greg)})${kind ? `, ${kind} day` : ''}`}
+                  aria-label={`${ETHIOPIAN_MONTHS[view.month - 1][amharic ? 'am' : 'en'] } ${day}, ${view.year} ${text.era} (${formatGregorian(greg)})${kind ? `, ${kind === 'feast' ? text.feastDay : text.fastDay}` : ''}`}
                   aria-pressed={isSelected}
                 >
                   <span>{day}</span>
@@ -259,12 +264,12 @@ export function EthiopianDateInput({
           <div className="etdp-foot">
             {showChurchDays && (
               <span className="etdp-legend">
-                <i className="is-feast" /> Feast <i className="is-fast" /> Fast
+                <i className="is-feast" /> {text.feast} <i className="is-fast" /> {text.fast}
               </span>
             )}
             <span className="etdp-actions">
               {!required && value && (
-                <button type="button" onClick={() => { onChange(''); setOpen(false) }}>Clear</button>
+                <button type="button" onClick={() => { onChange(''); setOpen(false) }}>{text.clear}</button>
               )}
               <button
                 type="button"
@@ -274,7 +279,7 @@ export function EthiopianDateInput({
                   else pick(et)
                 }}
               >
-                Today
+                {text.today}
               </button>
             </span>
           </div>

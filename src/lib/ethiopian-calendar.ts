@@ -1,3 +1,4 @@
+import i18n from '@/i18n'
 /**
  * Ethiopian calendar conversion and the Ethiopian Orthodox Tewahedo church year.
  *
@@ -67,14 +68,19 @@ export function fromEthiopian({ year, month, day }: EthiopianDate): Date {
   return fromJdn(jdn)
 }
 
-export function formatEthiopian(date: Date, lang: 'am' | 'en' = 'en'): string {
+/** The interface language, for formatters called outside React. */
+function uiLang(): 'am' | 'en' {
+  return i18n.language === 'en' ? 'en' : 'am'
+}
+
+export function formatEthiopian(date: Date, lang: 'am' | 'en' = uiLang()): string {
   const et = toEthiopian(date)
   const month = ETHIOPIAN_MONTHS[et.month - 1][lang]
   return lang === 'am' ? `${month} ${et.day}፣ ${et.year} ዓ.ም.` : `${month} ${et.day}, ${et.year} E.C.`
 }
 
 export function formatGregorian(date: Date): string {
-  return new Intl.DateTimeFormat('en-GB', {
+  return new Intl.DateTimeFormat(uiLang() === 'am' ? 'am-ET' : 'en-GB', {
     weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC',
   }).format(date)
 }
@@ -190,7 +196,10 @@ export function formatEthiopianShort(value: string | Date | null | undefined): s
   const d = iso ? parseIsoDate(iso.slice(0, 10)) : null
   if (!d) return iso ? String(iso) : '—'
   const e = toEthiopian(d)
-  return `${ETHIOPIAN_MONTHS[e.month - 1].en} ${e.day}, ${e.year}`
+  const lang = uiLang()
+  return lang === 'am'
+    ? `${ETHIOPIAN_MONTHS[e.month - 1].am} ${e.day}፣ ${e.year}`
+    : `${ETHIOPIAN_MONTHS[e.month - 1].en} ${e.day}, ${e.year}`
 }
 
 /** "Tikimt 18, 2019 E.C. · 28 Oct 2026" — for read-only displays and tables. */
@@ -198,6 +207,7 @@ export function formatDualDate(value: string | Date | null | undefined): string 
   const iso = asIso(value)
   const d = iso ? parseIsoDate(iso.slice(0, 10)) : null
   if (!d) return iso ? String(iso) : '—'
-  const g = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' }).format(d)
-  return `${formatEthiopianShort(iso)} E.C. · ${g}`
+  const am = uiLang() === 'am'
+  const g = new Intl.DateTimeFormat(am ? 'am-ET' : 'en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' }).format(d)
+  return `${formatEthiopianShort(iso)} ${am ? 'ዓ.ም.' : 'E.C.'} · ${g}`
 }

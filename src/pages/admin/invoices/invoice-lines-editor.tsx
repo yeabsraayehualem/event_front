@@ -1,4 +1,6 @@
 import type { Dispatch, SetStateAction } from 'react'
+import { useTranslation } from 'react-i18next'
+import i18n, { formatMoney } from '@/i18n'
 import { Many2ManyTags } from '@/components/admin/many2many-tags'
 
 export type ContentOption = { id: number; name: string }
@@ -6,10 +8,7 @@ export type TaxProfile = { id: number; name: string; kind: string; rate: string;
 export type EditableLine = { key: string; contentId: number | ''; amount: string; taxProfileIds: number[] }
 
 export function formatAmount(value: string | number) {
-  const amount = Number(value)
-  return Number.isFinite(amount)
-    ? new Intl.NumberFormat('en-ET', { style: 'currency', currency: 'ETB' }).format(amount)
-    : value
+  return formatMoney(value)
 }
 
 export function newInvoiceLine(contents: ContentOption[]): EditableLine {
@@ -17,9 +16,9 @@ export function newInvoiceLine(contents: ContentOption[]): EditableLine {
 }
 
 export function invalidInvoiceLines(lines: EditableLine[]) {
-  if (lines.length === 0) return 'An invoice needs at least one line.'
+  if (lines.length === 0) return i18n.t('invoices:lines.needOne')
   if (lines.some((line) => !line.contentId || line.amount.trim() === '' || Number(line.amount) < 0)) {
-    return 'Choose a service and enter a valid amount for every line.'
+    return i18n.t('invoices:lines.invalid')
   }
   return ''
 }
@@ -43,6 +42,7 @@ type InvoiceLinesEditorProps = {
 
 /** Editable one2many list of invoice lines: service, tax-inclusive price, and taxes. */
 export function InvoiceLinesEditor({ lines, setLines, contents, taxProfiles, savedTotals = {} }: InvoiceLinesEditorProps) {
+  const { t } = useTranslation('invoices')
   const taxOptions = taxProfiles.map((tax) => ({ id: tax.id, label: tax.name.includes('%') ? tax.name : `${tax.name} ${Number(tax.rate)}%` }))
   const updateLine = (key: string, update: Partial<EditableLine>) => {
     setLines((current) => current.map((line) => line.key === key ? { ...line, ...update } : line))
@@ -53,11 +53,11 @@ export function InvoiceLinesEditor({ lines, setLines, contents, taxProfiles, sav
       <div className="o-list-wrap">
         <table className="o-list">
           <thead><tr>
-            <th scope="col">Service</th>
-            <th scope="col" className="o-num">Price (incl.)</th>
-            <th scope="col">Taxes</th>
-            <th scope="col" className="o-num">Subtotal</th>
-            <th scope="col" className="o-list-actions"><span className="sr-only">Actions</span></th>
+            <th scope="col">{t('lines.service')}</th>
+            <th scope="col" className="o-num">{t('lines.priceIncl')}</th>
+            <th scope="col">{t('lines.taxes')}</th>
+            <th scope="col" className="o-num">{t('lines.subtotal')}</th>
+            <th scope="col" className="o-list-actions"><span className="sr-only">{t('lines.actions')}</span></th>
           </tr></thead>
           <tbody>
             {lines.map((line) => {
@@ -65,31 +65,31 @@ export function InvoiceLinesEditor({ lines, setLines, contents, taxProfiles, sav
               return (
                 <tr key={line.key} className={savedTotal === undefined ? 'is-new' : ''}>
                   <td>
-                    <select className="o-input" aria-label="Invoice service" value={line.contentId} onChange={(event) => updateLine(line.key, { contentId: event.target.value ? Number(event.target.value) : '' })}>
-                      <option value="">Choose a service</option>
+                    <select className="o-input" aria-label={t('lines.serviceLabel')} value={line.contentId} onChange={(event) => updateLine(line.key, { contentId: event.target.value ? Number(event.target.value) : '' })}>
+                      <option value="">{t('lines.chooseService')}</option>
                       {contents.map((content) => <option key={content.id} value={content.id}>{content.name}</option>)}
                     </select>
                   </td>
                   <td className="o-num">
-                    <input className="o-input o-num" aria-label="Line price" type="number" min="0" step="0.01" value={line.amount} onChange={(event) => updateLine(line.key, { amount: event.target.value })} />
+                    <input className="o-input o-num" aria-label={t('lines.priceLabel')} type="number" min="0" step="0.01" value={line.amount} onChange={(event) => updateLine(line.key, { amount: event.target.value })} />
                   </td>
                   <td>
                     {taxOptions.length
-                      ? <Many2ManyTags aria-label="Line taxes" options={taxOptions} value={line.taxProfileIds} onChange={(ids) => updateLine(line.key, { taxProfileIds: ids })} placeholder="Default VAT 15%" />
-                      : <span className="o-muted">Default VAT (15%)</span>}
+                      ? <Many2ManyTags aria-label={t('lines.taxesLabel')} options={taxOptions} value={line.taxProfileIds} onChange={(ids) => updateLine(line.key, { taxProfileIds: ids })} placeholder={t('lines.defaultVatPlaceholder')} />
+                      : <span className="o-muted">{t('lines.defaultVat')}</span>}
                   </td>
-                  <td className="o-num o-muted">{savedTotal !== undefined ? formatAmount(savedTotal) : 'After save'}</td>
+                  <td className="o-num o-muted">{savedTotal !== undefined ? formatAmount(savedTotal) : t('lines.afterSave')}</td>
                   <td className="o-list-actions">
-                    <button type="button" className="o-btn o-btn-link o-btn-sm o-btn-danger" onClick={() => setLines((current) => current.filter((item) => item.key !== line.key))} disabled={lines.length === 1} aria-label="Remove line" title="Remove line">🗑</button>
+                    <button type="button" className="o-btn o-btn-link o-btn-sm o-btn-danger" onClick={() => setLines((current) => current.filter((item) => item.key !== line.key))} disabled={lines.length === 1} aria-label={t('lines.remove')} title={t('lines.remove')}>🗑</button>
                   </td>
                 </tr>
               )
             })}
-            {lines.length === 0 && <tr><td colSpan={5} className="o-list-empty">No lines yet — add the first service below.</td></tr>}
+            {lines.length === 0 && <tr><td colSpan={5} className="o-list-empty">{t('lines.empty')}</td></tr>}
           </tbody>
         </table>
       </div>
-      <button type="button" className="o-list-add" onClick={() => setLines((current) => [...current, newInvoiceLine(contents)])} disabled={!contents.length}>Add a line</button>
+      <button type="button" className="o-list-add" onClick={() => setLines((current) => [...current, newInvoiceLine(contents)])} disabled={!contents.length}>{t('lines.add')}</button>
     </>
   )
 }

@@ -1,0 +1,18 @@
+import common from './common'
+import nav from './nav'
+import inquiry from './inquiry'
+import website from './website'
+import auth from './auth'
+import dashboard from './dashboard'
+import leads from './leads'
+import chatter from './chatter'
+import invoices from './invoices'
+import projects from './projects'
+import catalog from './catalog'
+import procurement from './procurement'
+import expenses from './expenses'
+import crew from './crew'
+import payroll from './payroll'
+import users from './users'
+
+export const am = { common, nav, inquiry, website, auth, dashboard, leads, chatter, invoices, projects, catalog, procurement, expenses, crew, payroll, users }

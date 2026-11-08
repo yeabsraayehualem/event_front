@@ -1,3 +1,4 @@
+import i18n from '@/i18n'
 import { create } from 'zustand'
 import { apiBaseUrl } from '@/lib/api'
 import { clearProfileCache } from '@/lib/use-profile'
@@ -18,11 +19,9 @@ type AuthState = {
   clearError: () => void
 }
 
-function getErrorMessage(response: ApiResponse) {
-  const message = response.message ?? response.detail
-  return typeof message === 'string'
-    ? message
-    : 'Invalid credentials. Please try again.'
+// Sign-in failures are a fixed set, so show our own translated text rather than the server's English.
+function getErrorMessage() {
+  return i18n.t('auth:invalidCredentials')
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
@@ -77,7 +76,7 @@ export const useAuthStore = create<AuthState>((set) => ({
           : { data: body }
 
       if (!response.ok) {
-        throw new Error(getErrorMessage(result))
+        throw new Error(getErrorMessage())
       }
 
       const sessionResponse = await fetch(`${apiBaseUrl}/user/profile/`, {
@@ -85,9 +84,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         headers: { Accept: 'application/json' },
       })
       if (!sessionResponse.ok) {
-        throw new Error(
-          'Sign-in succeeded, but the browser did not keep the session. Open the frontend and backend using the same host name (both localhost or both 127.0.0.1), then try again.',
-        )
+        throw new Error(i18n.t('auth:sessionNotKept'))
       }
 
       // Keep the complete backend response in app state after the session is confirmed.
@@ -101,10 +98,10 @@ export const useAuthStore = create<AuthState>((set) => ({
     } catch (error) {
       const message =
         error instanceof TypeError
-          ? 'Unable to reach the server. Please check your connection.'
+          ? i18n.t('auth:unreachable')
           : error instanceof Error
             ? error.message
-            : 'Unable to sign in. Please try again.'
+            : i18n.t('auth:failed')
       set({ error: message })
       throw error
     } finally {

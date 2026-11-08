@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { AdminShell } from '@/components/admin/admin-shell'
 import { RecordFormView } from '@/components/admin/record-form-view'
@@ -28,10 +29,6 @@ type Draft = {
   notes: string
 }
 
-const fieldLabels = {
-  amount: 'Amount', tax: 'Tax', purchase_order: 'Purchase order', scheduled_payment: 'Payment milestone',
-  category: 'Category', description: 'Description', event: 'Event',
-}
 
 function todayIso() {
   const now = new Date()
@@ -58,6 +55,7 @@ function draftFrom(expense: Expense): Draft {
 }
 
 export function ExpenseFormPage() {
+  const { t } = useTranslation('expenses')
   const { id } = useParams<{ id: string }>()
   const isNew = !id
   const [searchParams] = useSearchParams()
@@ -80,8 +78,8 @@ export function ExpenseFormPage() {
   const load = useCallback(async (signal?: AbortSignal) => {
     try {
       const [loadedOptions, loadedExpense] = await Promise.all([
-        apiRequest<ExpenseOptions>('/finance/expense-options/', { signal, fallback: 'Could not load expense options.' }),
-        isNew ? Promise.resolve(null) : apiRequest<Expense>(`/finance/expenses/${id}/`, { signal, fallback: 'Could not load this expense.' }),
+        apiRequest<ExpenseOptions>('/finance/expense-options/', { signal, fallback: t('form.loadOptions') }),
+        isNew ? Promise.resolve(null) : apiRequest<Expense>(`/finance/expenses/${id}/`, { signal, fallback: t('form.loadFailed') }),
       ])
       setOptions(loadedOptions)
       if (loadedExpense) {
@@ -133,8 +131,8 @@ export function ExpenseFormPage() {
 
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (draft.chargeTo === 'event' && !draft.event) { setError('Choose the event this cost belongs to.'); return }
-    if (draft.chargeTo === 'bill' && !draft.purchaseOrder) { setError('Choose the purchase order this bill pays.'); return }
+    if (draft.chargeTo === 'event' && !draft.event) { setError(t('form.needEvent')); return }
+    if (draft.chargeTo === 'bill' && !draft.purchaseOrder) { setError(t('form.needOrder')); return }
     setSaving(true)
     setError('')
     try {
@@ -161,7 +159,10 @@ export function ExpenseFormPage() {
         delete (body as Partial<typeof body>).vendor
       }
       const result = await apiRequest<Expense>(isNew ? '/finance/expenses/' : `/finance/expenses/${id}/`, {
-        method: isNew ? 'POST' : 'PATCH', body, fallback: 'Could not save this expense.', labels: fieldLabels,
+        method: isNew ? 'POST' : 'PATCH', body, fallback: t('form.saveFailed'), labels: {
+          amount: t('form.amount'), tax: t('form.tax'), purchase_order: t('form.purchaseOrder'), scheduled_payment: t('form.milestone'),
+          category: t('form.category'), description: t('form.description'), event: t('form.event'),
+        },
       })
       if (isNew) {
         navigate(`/dashboard/expenses/${result.id}`, { replace: true })
@@ -172,7 +173,7 @@ export function ExpenseFormPage() {
       setSaved(true)
       setChatterKey((key) => key + 1)
     } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : 'Could not save this expense.')
+      setError(saveError instanceof Error ? saveError.message : t('form.saveFailed'))
     } finally {
       setSaving(false)
     }
@@ -190,24 +191,24 @@ export function ExpenseFormPage() {
         headers: { Accept: 'application/json', 'X-CSRFToken': await fetchCsrfToken() },
       })
       const data: unknown = await response.json()
-      if (!response.ok) throw new Error(getErrorMessage(data, 'Could not upload the receipt.'))
+      if (!response.ok) throw new Error(getErrorMessage(data, t('form.uploadFailed')))
       setExpense(data as Expense)
       setChatterKey((key) => key + 1)
     } catch (uploadError) {
-      setError(uploadError instanceof Error ? uploadError.message : 'Could not upload the receipt.')
+      setError(uploadError instanceof Error ? uploadError.message : t('form.uploadFailed'))
     } finally {
       setUploading(false)
     }
   }
 
   async function remove() {
-    if (!expense || !window.confirm(`Delete ${expense.reference}? This removes ${formatMoney(expense.total)} from the books.`)) return
+    if (!expense || !window.confirm(t('form.confirmDelete', { reference: expense.reference, amount: formatMoney(expense.total) }))) return
     setError('')
     try {
-      await apiRequest(`/finance/expenses/${expense.id}/`, { method: 'DELETE', fallback: 'Could not delete this expense.' })
+      await apiRequest(`/finance/expenses/${expense.id}/`, { method: 'DELETE', fallback: t('form.deleteFailed') })
       navigate('/dashboard/expenses', { replace: true })
     } catch (removeError) {
-      setError(removeError instanceof Error ? removeError.message : 'Could not delete this expense.')
+      setError(removeError instanceof Error ? removeError.message : t('form.deleteFailed'))
     }
   }
 
@@ -222,38 +223,38 @@ export function ExpenseFormPage() {
 
   const lockedBill = Boolean(expense?.purchase_order)
   const chargeOptions = [
-    { value: 'overhead', label: 'Overhead (not tied to an event)' },
-    { value: 'event', label: 'An event' },
-    { value: 'bill', label: 'A purchase order (vendor bill)' },
+    { value: 'overhead', label: t('form.chargeOverhead') },
+    { value: 'event', label: t('form.chargeEvent') },
+    { value: 'bill', label: t('form.chargeBill') },
   ]
-  const orderOptions = orders.map((item) => ({ value: String(item.id), label: `${item.reference} · ${item.vendor_name} · ${formatMoney(item.remaining)} left` }))
+  const orderOptions = orders.map((item) => ({ value: String(item.id), label: t('form.orderLeft', { reference: item.reference, vendor: item.vendor_name, amount: formatMoney(item.remaining) }) }))
   if (expense?.purchase_order && !orderOptions.some((item) => item.value === String(expense.purchase_order))) {
     orderOptions.push({ value: String(expense.purchase_order), label: expense.purchase_order_reference ?? '' })
   }
   const paymentOptions = (order?.payments ?? [])
     .filter((item) => !item.bill_id || String(item.id) === draft.scheduledPayment)
-    .map((item) => ({ value: String(item.id), label: `${item.label} · ${formatMoney(item.amount)}${item.due_date ? ` · due ${formatDualDate(item.due_date)}` : ''}` }))
+    .map((item) => ({ value: String(item.id), label: `${item.label} · ${formatMoney(item.amount)}${item.due_date ? ` · ${t('form.due', { date: formatDualDate(item.due_date) })}` : ''}` }))
 
   const linkFields = draft.chargeTo === 'bill' ? [
     {
-      name: 'purchaseOrder', label: 'Purchase order', type: 'select' as const, value: draft.purchaseOrder, required: true, readOnly: lockedBill,
-      options: [{ value: '', label: orders.length ? 'Choose an approved order' : 'No approved orders to bill' }, ...orderOptions],
+      name: 'purchaseOrder', label: t('form.purchaseOrder'), type: 'select' as const, value: draft.purchaseOrder, required: true, readOnly: lockedBill,
+      options: [{ value: '', label: orders.length ? t('form.chooseOrder') : t('form.noOrders') }, ...orderOptions],
       helpText: order ? `${order.event_name} · ${formatMoney(order.remaining)} of ${formatMoney(order.total)} still to bill` : undefined,
     },
     ...(paymentOptions.length ? [{
-      name: 'scheduledPayment', label: 'Pays milestone', type: 'select' as const, value: draft.scheduledPayment,
-      options: [{ value: '', label: 'Not a scheduled payment' }, ...paymentOptions],
+      name: 'scheduledPayment', label: t('form.paysMilestone'), type: 'select' as const, value: draft.scheduledPayment,
+      options: [{ value: '', label: t('form.notScheduled') }, ...paymentOptions],
     }] : []),
   ] : [
     ...(draft.chargeTo === 'event' ? [{
-      name: 'event', label: 'Event', type: 'select' as const, value: draft.event, required: true,
-      options: [{ value: '', label: 'Choose an event' }, ...options.events.map((item) => ({ value: String(item.id), label: `${item.name} · ${formatDualDate(item.event_date)}` }))],
+      name: 'event', label: t('form.event'), type: 'select' as const, value: draft.event, required: true,
+      options: [{ value: '', label: t('form.chooseEvent') }, ...options.events.map((item) => ({ value: String(item.id), label: `${item.name} · ${formatDualDate(item.event_date)}` }))],
     }] : []),
     {
-      name: 'vendor', label: 'Vendor', type: 'select' as const, value: draft.vendor,
-      options: [{ value: '', label: 'Not a registered vendor' }, ...options.vendors.map((item) => ({ value: String(item.id), label: item.name }))],
+      name: 'vendor', label: t('form.vendor'), type: 'select' as const, value: draft.vendor,
+      options: [{ value: '', label: t('form.notRegistered') }, ...options.vendors.map((item) => ({ value: String(item.id), label: item.name }))],
     },
-    ...(!draft.vendor ? [{ name: 'payee', label: 'Paid to', value: draft.payee, placeholder: 'e.g. Total fuel station' }] : []),
+    ...(!draft.vendor ? [{ name: 'payee', label: t('form.paidTo'), value: draft.payee, placeholder: t('form.paidToPlaceholder') }] : []),
   ]
 
   return (
@@ -261,33 +262,33 @@ export function ExpenseFormPage() {
       {error && <p className="dashboard-message dashboard-message--error" role="alert">{error}</p>}
       {(isNew || expense) && (
         <RecordFormView
-          modelName="Expense"
+          modelName={t('model')}
           title={expense?.reference ?? ''}
-          subtitle={expense ? `${expense.category_name} · ${expense.event_name ?? 'Overhead'}` : 'Money spent: a vendor bill, an event cost or overhead.'}
+          subtitle={expense ? `${expense.category_name} · ${expense.event_name ?? t('overhead')}` : t('form.newSubtitle')}
           recordId={expense?.id}
           backHref="/dashboard/expenses"
-          backLabel="Expenses"
+          backLabel={t('form.back')}
           actionSlot={expense && <>
-            {expense.purchase_order && <Link to={`/dashboard/purchase-orders/${expense.purchase_order}`} className="o-btn o-btn-secondary">Open {expense.purchase_order_reference}</Link>}
-            <button type="button" className="o-btn o-btn-link o-btn-danger" onClick={() => void remove()}>Delete</button>
+            {expense.purchase_order && <Link to={`/dashboard/purchase-orders/${expense.purchase_order}`} className="o-btn o-btn-secondary">{t('form.openOrder', { reference: expense.purchase_order_reference })}</Link>}
+            <button type="button" className="o-btn o-btn-link o-btn-danger" onClick={() => void remove()}>{t('form.delete')}</button>
           </>}
           headerAside={<>
             <div className="o-stat-button">
               <span className="o-stat-icon" aria-hidden="true">Br</span>
-              <span><strong>{formatMoney(total)}</strong><small>Paid</small></span>
+              <span><strong>{formatMoney(total)}</strong><small>{t('form.statPaid')}</small></span>
             </div>
             {expense && (
               <div className={`o-stat-button${expense.receipt_url ? '' : ' is-muted'}`}>
                 <span className="o-stat-icon" aria-hidden="true">✓</span>
-                <span><strong>{expense.receipt_url ? 'Attached' : 'None'}</strong><small>Receipt</small></span>
+                <span><strong>{expense.receipt_url ? t('form.attached') : t('form.none')}</strong><small>{t('form.statReceipt')}</small></span>
               </div>
             )}
           </>}
           headerFields={[
-            { name: 'description', label: 'Description', value: draft.description, required: true, placeholder: 'e.g. Fuel for the delivery van' },
-            { name: 'date', label: 'Date', type: 'date', value: draft.date, required: true },
-            { name: 'category', label: 'Category', type: 'select', value: draft.category, required: true, options: options.categories.map((item) => ({ value: String(item.id), label: item.name })) },
-            { name: 'chargeTo', label: 'Charged to', type: 'select', value: draft.chargeTo, readOnly: lockedBill, options: chargeOptions },
+            { name: 'description', label: t('form.description'), value: draft.description, required: true, placeholder: t('form.descriptionPlaceholder') },
+            { name: 'date', label: t('form.date'), type: 'date', value: draft.date, required: true },
+            { name: 'category', label: t('form.category'), type: 'select', value: draft.category, required: true, options: options.categories.map((item) => ({ value: String(item.id), label: item.name })) },
+            { name: 'chargeTo', label: t('form.chargedTo'), type: 'select', value: draft.chargeTo, readOnly: lockedBill, options: chargeOptions },
             ...linkFields,
           ]}
           onFieldChange={(name, value) => {
@@ -297,38 +298,38 @@ export function ExpenseFormPage() {
           }}
           tabs={[
             {
-              id: 'payment', label: 'Payment', sections: [
+              id: 'payment', label: t('form.paymentTab'), sections: [
                 {
-                  title: 'Amount', fields: [
-                    { name: 'amount', label: 'Amount excl. VAT', type: 'number', value: draft.amount, required: true, helpText: 'This is what counts as expense on the dashboard.' },
+                  title: t('form.amountSection'), fields: [
+                    { name: 'amount', label: t('form.amountExcl'), type: 'number', value: draft.amount, required: true, helpText: t('form.amountHelp') },
                     {
-                      name: 'tax', label: 'Tax', type: 'custom',
+                      name: 'tax', label: t('form.tax'), type: 'custom',
                       render: (
                         <div className="proc-datetime">
-                          <input className="o-input" type="number" min="0" step="0.01" aria-label="Tax" value={draft.tax} onChange={(event) => update({ tax: event.target.value })} />
-                          <button type="button" className="o-btn o-btn-link o-btn-sm" disabled={!Number(draft.amount)} onClick={() => update({ tax: (Math.round(Number(draft.amount) * 15) / 100).toFixed(2) })}>+15% VAT</button>
+                          <input className="o-input" type="number" min="0" step="0.01" aria-label={t('form.tax')} value={draft.tax} onChange={(event) => update({ tax: event.target.value })} />
+                          <button type="button" className="o-btn o-btn-link o-btn-sm" disabled={!Number(draft.amount)} onClick={() => update({ tax: (Math.round(Number(draft.amount) * 15) / 100).toFixed(2) })}>{t('form.addVat')}</button>
                         </div>
                       ),
                     },
-                    { name: 'total', label: 'Total paid', value: formatMoney(total), readOnly: true },
+                    { name: 'total', label: t('form.totalPaid'), value: formatMoney(total), readOnly: true },
                   ],
                 },
                 {
-                  title: 'Proof', fields: [
-                    { name: 'paymentMethod', label: 'Paid by', type: 'select', value: draft.paymentMethod, options: options.payment_methods },
-                    { name: 'receiptNumber', label: 'Receipt no.', value: draft.receiptNumber, placeholder: 'Invoice or receipt number' },
+                  title: t('form.proof'), fields: [
+                    { name: 'paymentMethod', label: t('form.paidBy'), type: 'select', value: draft.paymentMethod, options: options.payment_methods },
+                    { name: 'receiptNumber', label: t('form.receiptNo'), value: draft.receiptNumber, placeholder: t('form.receiptPlaceholder') },
                     ...(expense ? [{
-                      name: 'receipt', label: 'Receipt file', type: 'custom' as const,
+                      name: 'receipt', label: t('form.receiptFile'), type: 'custom' as const,
                       render: (
                         <div className="proc-datetime">
-                          {expense.receipt_url && <a href={expense.receipt_url} target="_blank" rel="noreferrer" className="cat-row-link">View</a>}
-                          <input className="o-input" type="file" accept=".pdf,.jpg,.jpeg,.png" aria-label="Upload receipt" disabled={uploading} onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadReceipt(file) }} />
+                          {expense.receipt_url && <a href={expense.receipt_url} target="_blank" rel="noreferrer" className="cat-row-link">{t('form.view')}</a>}
+                          <input className="o-input" type="file" accept=".pdf,.jpg,.jpeg,.png" aria-label={t('form.uploadReceipt')} disabled={uploading} onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadReceipt(file) }} />
                         </div>
                       ),
                     }] : []),
                   ],
                 },
-                { title: 'Notes', fields: [{ name: 'notes', label: 'Notes', type: 'textarea', value: draft.notes, fullWidth: true }] },
+                { title: t('form.notes'), fields: [{ name: 'notes', label: t('form.notes'), type: 'textarea', value: draft.notes, fullWidth: true }] },
               ],
             },
           ]}
@@ -341,7 +342,7 @@ export function ExpenseFormPage() {
           }}
           saving={saving}
           saved={saved}
-          submitLabel={isNew ? 'Record' : 'Save'}
+          submitLabel={isNew ? t('form.record') : t('form.save')}
           chatter={expense ? { model: 'expense', recordId: expense.id, refreshKey: chatterKey } : undefined}
         />
       )}

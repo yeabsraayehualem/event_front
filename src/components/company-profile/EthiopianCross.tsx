@@ -41,7 +41,7 @@ export function TibebBand({ className }: { className?: string }) {
     <svg className={className} viewBox="0 0 240 24" preserveAspectRatio="none" aria-hidden="true">
       <defs>
         <pattern id="tibeb" width="24" height="24" patternUnits="userSpaceOnUse">
-          <rect width="24" height="24" fill="#28513c" />
+          <rect width="24" height="24" fill="#5b211e" />
           <path d="M0 12 12 2l12 10-12 10Z" fill="#bd9a57" />
           <path d="M6 12l6-5 6 5-6 5Z" fill="#a6463c" />
           <path d="M11 12h2" stroke="#f8f5ec" strokeWidth="2" />

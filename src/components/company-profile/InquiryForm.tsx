@@ -4,37 +4,63 @@ import { EthiopianCross } from './EthiopianCross'
 import { guidanceFor, parseIsoDate, todayUtc } from '@/lib/ethiopian-calendar'
 import { EthiopianDateInput } from '@/components/ethiopian-date-input'
 import { BUDGET_TIERS } from '@/lib/event-options'
+import { LocaleSwitch } from '@/lib/i18n'
+import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 
+/** Why a submission failed; shown to the visitor in their language. */
+export type InquiryError = 'network' | 'invalid' | 'phone' | 'name' | 'plan_date' | 'location' | 'guest_count'
 
-function DateGuidanceNote({ date, eventType }: { date: string; eventType: string }) {
+/**
+ * Values sent to the API stay in English so staff read leads the same way
+ * whatever language the visitor used; only the labels are translated.
+ */
+const CATERING = [
+  { value: 'Fasting (yetsom) menu', key: 'fasting' },
+  { value: 'Non-fasting (yefisik) menu', key: 'nonFasting' },
+  { value: 'Both fasting and non-fasting', key: 'both' },
+  { value: 'No catering needed', key: 'none' },
+] as const
+
+export type InquiryNotice =
+  | { kind: 'success'; customerName?: string; planName?: string }
+  | { kind: 'error'; error: InquiryError }
+
+function DateGuidanceNote({ date, occasion: label, t, amharic }: {
+  date: string
+  occasion: string
+  t: TFunction<'inquiry'>
+  amharic: boolean
+}) {
   const day = parseIsoDate(date)
   if (!day) return null
   const g = guidanceFor(day)
-  // Event type names are managed per plan in the catalog, so match them loosely.
-  const occasion = eventType.toLowerCase()
+  // Plan and occasion names are managed in the catalog, so match them loosely.
+  const occasion = label.toLowerCase()
   const isTeklil = occasion.includes('teklil') || occasion.includes('church wedding')
-  const isWedding = isTeklil || occasion.includes('wedding')
+  const isWedding = isTeklil || /wedd?ing|serg/.test(occasion)
   const fast = g.periods.find((p) => p.kind === 'fast')
   const feast = g.periods.find((p) => p.kind === 'feast')
+  const periodName = (p: { name: string; am: string }) => (amharic ? p.am : `${p.name} (${p.am})`)
   const notes: { tone: 'warn' | 'info'; text: string }[] = []
 
   if (fast && isTeklil) {
-    notes.push({ tone: 'warn', text: `This date falls in ${fast.name} (${fast.am}). Church weddings are not held during the fast, so we suggest choosing another date or speaking with your parish.` })
+    notes.push({ tone: 'warn', text: t('guidance.teklilInFast', { fast: periodName(fast) }) })
   } else if (fast && isWedding) {
-    notes.push({ tone: 'warn', text: `This date falls in ${fast.name} (${fast.am}). Many families avoid wedding celebrations during the fast; we can plan a fasting (yetsom) menu if you go ahead.` })
+    notes.push({ tone: 'warn', text: t('guidance.weddingInFast', { fast: periodName(fast) }) })
   } else if (fast) {
-    notes.push({ tone: 'info', text: `This date falls in ${fast.name} (${fast.am}). We will plan a fasting (yetsom) menu for guests who keep the fast.` })
+    notes.push({ tone: 'info', text: t('guidance.inFast', { fast: periodName(fast) }) })
   } else if (g.weeklyFast) {
-    notes.push({ tone: 'info', text: 'This is a Wednesday or Friday fast day. We will include fasting (yetsom) dishes for guests who keep it.' })
+    notes.push({ tone: 'info', text: t('guidance.weeklyFast') })
   }
   if (feast) {
-    notes.push({ tone: 'info', text: `${feast.name} (${feast.am}) falls on this date. Venues, crews and church schedules are busy around feasts, so it helps to book early.` })
+    notes.push({ tone: 'info', text: t('guidance.feast', { feast: periodName(feast) }) })
   }
-  if (occasion.includes('kiristina') || occasion.includes('christening')) {
-    notes.push({ tone: 'info', text: 'Christening is traditionally on the 40th day for a boy and the 80th day for a girl. We will confirm the day with your church.' })
+  if (/kir?i?st(i)?na|kerstna|christening|baptism/.test(occasion)) {
+    notes.push({ tone: 'info', text: t('guidance.christening') })
   }
   if (occasion.includes('tezkar') || occasion.includes('memorial')) {
-    notes.push({ tone: 'info', text: 'We will keep the gathering quiet and respectful, with no entertainment unless your family asks for it.' })
+    notes.push({ tone: 'info', text: t('guidance.memorial') })
   }
 
   return (
@@ -42,7 +68,7 @@ function DateGuidanceNote({ date, eventType }: { date: string; eventType: string
       <p className="date-guidance-et">
         <EthiopianCross size={14} />
         <span lang="am">{g.ethiopianAm}</span>
-        <span>· {g.ethiopian}</span>
+        {!amharic && <span>· {g.ethiopian}</span>}
       </p>
       {notes.map((n) => (
         <p key={n.text} className={`date-guidance-note date-guidance-note--${n.tone}`}>{n.text}</p>
@@ -57,8 +83,9 @@ interface InquiryFormProps {
   setSelectedPlan: (id: string) => void
   selectedPackage: string
   setSelectedPackage: (id: string) => void
+  catalogLoading: boolean
   submitting: boolean
-  notice: { kind: 'success' | 'error'; text: string; customerName?: string; planName?: string } | null
+  notice: InquiryNotice | null
   onSubmit: (e: FormEvent<HTMLFormElement>) => void
   onReset: () => void
 }
@@ -69,11 +96,16 @@ export function InquiryForm({
   setSelectedPlan,
   selectedPackage,
   setSelectedPackage,
+  catalogLoading,
   submitting,
   notice,
   onSubmit,
   onReset,
 }: InquiryFormProps) {
+  const { t, i18n } = useTranslation('inquiry')
+  const locale = i18n.language === 'en' ? 'en' : 'am'
+  const amharic = locale === 'am'
+
   const activePlan = useMemo(
     () => plans.find((p) => String(p.id) === selectedPlan),
     [plans, selectedPlan],
@@ -84,6 +116,9 @@ export function InquiryForm({
   const [eventDate, setEventDate] = useState('')
   const [eventType, setEventType] = useState('')
   const minDate = useMemo(() => todayUtc().toISOString().slice(0, 10), [])
+  // A plan with a single occasion needs no choice, so it is picked for the guest.
+  const chosenEventType =
+    eventType || (availableEventTypes.length === 1 ? String(availableEventTypes[0].id) : '')
 
   function startOver() {
     setEventDate('')
@@ -97,10 +132,12 @@ export function InquiryForm({
     setEventType('')
   }
 
+  const optional = <span className="optional">{t('optional')}</span>
+
   // ── Success card ─────────────────────────────────────────────
   if (notice?.kind === 'success') {
     return (
-      <section id="contact" className="contact-section contact-section--success">
+      <section id="contact" className="contact-section contact-section--success" lang={locale}>
         <div className="success-card" role="status" aria-live="polite">
           <span className="success-spark success-spark--one" aria-hidden="true">✦</span>
           <span className="success-spark success-spark--two" aria-hidden="true">✧</span>
@@ -110,20 +147,20 @@ export function InquiryForm({
               <circle cx="60" cy="60" r="56" stroke="#bd9a57" strokeWidth="1.2" strokeDasharray="4 6" />
             </svg>
           </div>
-          <p className="success-eyebrow">✦ &nbsp; YOUR INQUIRY IS WITH OUR TEAM &nbsp; ✦</p>
+          <p className="success-eyebrow">✦ &nbsp; {t('success.eyebrow')} &nbsp; ✦</p>
           <h2 className="success-heading">
-            {notice.customerName ? `Wonderful, ${notice.customerName}!` : 'Wonderful news!'}<br />
-            <i>Your celebration starts here.</i>
+            {notice.customerName ? t('success.greetingNamed', { name: notice.customerName }) : t('success.greeting')}<br />
+            <i>{t('success.accent')}</i>
           </h2>
-          <p className="success-body">{notice.text}</p>
-          {notice.planName && <div className="success-plan"><span>THE CELEBRATION</span><strong>{notice.planName}</strong></div>}
+          <p className="success-body">{t('success.body')}</p>
+          {notice.planName && <div className="success-plan"><span>{t('success.planLabel')}</span><strong>{notice.planName}</strong></div>}
           <div className="success-next-steps">
-            <div><span>01</span><p><strong>We’ll be in touch</strong><small>Our team will reach out to hear more about your plans.</small></p></div>
-            <div><span>02</span><p><strong>We’ll shape it together</strong><small>We’ll help bring your family’s celebration to life.</small></p></div>
+            <div><span>01</span><p><strong>{t('success.step1.title')}</strong><small>{t('success.step1.text')}</small></p></div>
+            <div><span>02</span><p><strong>{t('success.step2.title')}</strong><small>{t('success.step2.text')}</small></p></div>
           </div>
           <div className="success-actions">
-            <a className="success-reset" href="#experiences">Explore celebrations <span>↗</span></a>
-            <button className="success-secondary" type="button" onClick={startOver}>Send another inquiry</button>
+            <a className="success-reset" href="#experiences">{t('success.explore')} <span>↗</span></a>
+            <button className="success-secondary" type="button" onClick={startOver}>{t('success.again')}</button>
           </div>
         </div>
       </section>
@@ -131,186 +168,181 @@ export function InquiryForm({
   }
 
   // ── Inquiry form ──────────────────────────────────────────────
+  const planReady = plans.length > 0
+  const occasionName = availableEventTypes.find((type) => String(type.id) === chosenEventType)?.name ?? ''
+
   return (
-    <section id="contact" className="contact-section">
+    <section id="contact" className="contact-section" lang={locale}>
       <div className="contact-copy">
-        <p className="eyebrow">Let&apos;s begin together</p>
-        <h2>Tell us about<br /><i>your celebration.</i></h2>
-        <p>
-          Share the date, the occasion, and what your family has in mind. We show the date in
-          the Ethiopian calendar and let you know if it falls in a fast or on a feast day.
-        </p>
+        <p className="eyebrow">{t('copy.eyebrow')}</p>
+        <h2>{t('copy.title')}<br /><i>{t('copy.titleAccent')}</i></h2>
+        <p>{t('copy.body')}</p>
         <div className="contact-detail">
           <span className="contact-icon"><EthiopianCross size={22} /></span>
           <div>
-            <small>Weddings, Kiristina, Tezkar, Mahber and holiday gatherings</small>
-            <a href="#contact-form">Share your celebration details ↗</a>
+            <small>{t('copy.occasions')}</small>
+            <a href="#contact-form">{t('copy.jump')} ↗</a>
           </div>
         </div>
       </div>
 
       <form id="contact-form" className="inquiry-form" onSubmit={onSubmit}>
         <div className="form-heading">
-          <span>Four short parts · about two minutes</span>
-          <p>Tell us about your celebration.</p>
-        </div>
-        <fieldset className="web-form-step">
-          <legend><span>01</span>About you<small>So we know who to call back</small></legend>
-          <div className="form-grid">
-          <label>
-            Your name
-            <input name="name" autoComplete="name" placeholder="Full name" required />
-          </label>
-          <label>
-            Phone number
-            <input name="phone" autoComplete="tel" placeholder="+251 …" required />
-          </label>
-          <label className="form-wide">
-            Email address
-            <input name="email" type="email" autoComplete="email" placeholder="you@example.com" required />
-          </label>
-
+          <div className="form-heading-text">
+            <span>{t('heading.meta')}</span>
+            <p>{t('heading.title')}</p>
           </div>
-        </fieldset>
+          <LocaleSwitch />
+        </div>
 
-        <fieldset className="web-form-step">
-          <legend><span>02</span>Your celebration<small>Plan, occasion, date and place</small></legend>
+        <fieldset className="web-form-step" disabled={!planReady}>
+          <legend><span>01</span>{t('step1.title')}<small>{t('step1.hint')}</small></legend>
           <div className="form-grid">
-          <label>
-            Celebration
-            <select name="plan" value={selectedPlan} onChange={handlePlanChange} required>
-              {plans.length === 0 && <option value="">Tell us about your event</option>}
-              {plans.map((plan) => (
-                <option key={plan.id} value={String(plan.id)}>{plan.name}</option>
-              ))}
-            </select>
-          </label>
-
-
-          <label>
-            Package
-            {availablePackages.length > 0 && (
-              <span className="pkg-count-hint">{availablePackages.length} available</span>
-            )}
-            <select
-              name="package"
-              value={selectedPackage}
-              onChange={(e) => setSelectedPackage(e.target.value)}
-              disabled={availablePackages.length === 0}
-            >
-              <option value="">
-                {availablePackages.length === 0 ? 'No packages for this plan' : "I'm not sure yet"}
-              </option>
-              {availablePackages.map((item) => (
-                <option key={item.id} value={String(item.id)}>{item.name}</option>
-              ))}
-            </select>
-          </label>
-
-
-          {/* Each plan lists its own occasions; a plan without any skips the question. */}
-          {availableEventTypes.length > 0 && (
-            <label>
-              Event type
-              <select name="event_type" required value={eventType} onChange={(e) => setEventType(e.target.value)}>
-                <option value="" disabled>Select an occasion</option>
-                {availableEventTypes.map((t) => (
-                  <option key={t.id} value={String(t.id)}>{t.name}</option>
+            <label className={availableEventTypes.length > 0 ? undefined : 'form-wide'}>
+              {t('plan')}
+              <select name="plan" value={selectedPlan} onChange={handlePlanChange} required>
+                {!planReady && <option value="">{catalogLoading ? t('planLoading') : t('planNone')}</option>}
+                {plans.map((plan) => (
+                  <option key={plan.id} value={String(plan.id)}>{plan.name}</option>
                 ))}
               </select>
             </label>
-          )}
 
+            {/* Each plan lists its own occasions; a plan without any skips the question. */}
+            {availableEventTypes.length > 0 && (
+              <label>
+                {t('occasion')}
+                <select
+                  name="event_type"
+                  required
+                  value={chosenEventType}
+                  onChange={(e) => setEventType(e.target.value)}
+                >
+                  {availableEventTypes.length > 1 && <option value="" disabled>{t('occasionPlaceholder')}</option>}
+                  {availableEventTypes.map((type) => (
+                    <option key={type.id} value={String(type.id)}>{type.name}</option>
+                  ))}
+                </select>
+              </label>
+            )}
 
-          <label>
-            Event date
-            <EthiopianDateInput name="plan_date" required value={eventDate} onChange={setEventDate} min={minDate} placeholder="Choose Date" />
-          </label>
+            <label>
+              {t('date')}
+              <EthiopianDateInput
+                name="plan_date"
+                required
+                value={eventDate}
+                onChange={setEventDate}
+                min={minDate}
+                placeholder={t('datePlaceholder')}
+              />
+            </label>
 
-          {eventDate && (
-            <div className="form-wide">
-              <DateGuidanceNote date={eventDate} eventType={availableEventTypes.find((t) => String(t.id) === eventType)?.name ?? ''} />
-            </div>
-          )}
+            <label>
+              {t('guests')} {optional}
+              <input name="guest_count" type="number" inputMode="numeric" min="1" max="10000" step="1" placeholder={t('guestsPlaceholder')} />
+            </label>
 
-          <label>
-            Event location
-            <input name="location" placeholder="City or venue" required />
-          </label>
+            {eventDate && (
+              <div className="form-wide">
+                <DateGuidanceNote
+                  date={eventDate}
+                  occasion={`${activePlan?.name ?? ''} ${occasionName}`}
+                  t={t}
+                  amharic={amharic}
+                />
+              </div>
+            )}
 
-          <label>
-            Estimated guests <span className="optional">OPTIONAL</span>
-            <input name="guest_count" type="number" min="1" placeholder="e.g. 150" />
-          </label>
-
+            <label className="form-wide">
+              {t('location')}
+              <input name="location" maxLength={255} placeholder={t('locationPlaceholder')} required />
+            </label>
           </div>
         </fieldset>
 
-        <fieldset className="web-form-step">
-          <legend><span>03</span>Hospitality<small>Optional — helps us prepare a quote</small></legend>
+        <fieldset className="web-form-step" disabled={!planReady}>
+          <legend><span>02</span>{t('step2.title')}<small>{t('step2.hint')}</small></legend>
           <div className="form-grid">
-          <label>
-            Menu <span className="optional">OPTIONAL</span>
-            <select name="menu" defaultValue="">
-              <option value="">Help us decide</option>
-              <option>Fasting (yetsom) only</option>
-              <option>Fasting and non-fasting</option>
-              <option>Non-fasting (yefisik)</option>
-              <option>No catering needed</option>
-            </select>
-          </label>
+            {availablePackages.length > 0 && (
+              <label className="form-wide">
+                {t('package')} {optional}
+                <select name="package" value={selectedPackage} onChange={(e) => setSelectedPackage(e.target.value)}>
+                  <option value="">{t('packageNone')}</option>
+                  {availablePackages.map((item) => (
+                    <option key={item.id} value={String(item.id)}>{item.name}</option>
+                  ))}
+                </select>
+              </label>
+            )}
 
-          <label>
-            Meat for guests <span className="optional">OPTIONAL</span>
-            <select name="meat" defaultValue="">
-              <option value="">Not sure yet</option>
-              <option>Christian slaughter</option>
-              <option>Halal</option>
-              <option>Both, prepared separately</option>
-              <option>No meat</option>
-            </select>
-          </label>
+            <label>
+              {t('catering')} {optional}
+              <select name="menu" defaultValue="">
+                <option value="">{t('cateringNone')}</option>
+                {CATERING.map((item) => (
+                  <option key={item.value} value={item.value}>{t(`cateringOptions.${item.key}`)}</option>
+                ))}
+              </select>
+            </label>
 
-          <label className="form-wide">
-            Budget range <span className="optional">OPTIONAL</span>
-            <select name="budget_tier" defaultValue="">
-              <option value="">We are still deciding</option>
-              {BUDGET_TIERS.map((tier) => <option key={tier}>{tier}</option>)}
-            </select>
-          </label>
+            <label>
+              {t('budget')} {optional}
+              <select name="budget_tier" defaultValue="">
+                <option value="">{t('budgetNone')}</option>
+                {BUDGET_TIERS.map((tier) => (
+                  <option key={tier.value} value={tier.value}>{t(`budgetTiers.${tier.key}`, { ns: 'common' })}</option>
+                ))}
+              </select>
+            </label>
+
+            <label className="form-wide">
+              {t('notes')} {optional}
+              <textarea name="notes" rows={4} placeholder={t('notesPlaceholder')} />
+            </label>
           </div>
         </fieldset>
 
-        <fieldset className="web-form-step">
-          <legend><span>04</span>Anything else<small>Your parish, customs and wishes</small></legend>
+        <fieldset className="web-form-step" disabled={!planReady}>
+          <legend><span>03</span>{t('step3.title')}<small>{t('step3.hint')}</small></legend>
           <div className="form-grid">
-          <label className="form-wide">
-            Requirements or traditions to include <span className="optional">OPTIONAL</span>
-            <textarea name="requirements" rows={3} placeholder="Your parish, family customs, coffee ceremony, accessibility needs…" />
-          </label>
-          <label className="form-wide">
-            A little more about your plans <span className="optional">OPTIONAL</span>
-            <textarea name="notes" rows={3} placeholder="What are you celebrating? What should we know?" />
-          </label>
+            <label>
+              {t('name')}
+              <input name="name" autoComplete="name" maxLength={255} placeholder={t('namePlaceholder')} required />
+            </label>
+            <label>
+              {t('phone')}
+              <input
+                name="phone"
+                type="tel"
+                inputMode="tel"
+                autoComplete="tel"
+                placeholder={t('phonePlaceholder')}
+                pattern="\+?[0-9][0-9\s\-]{7,18}"
+                title={t('phoneHint')}
+                required
+              />
+            </label>
           </div>
         </fieldset>
+
+        {!planReady && !catalogLoading && (
+          <p className="form-notice error" role="alert">{t('unavailable')}</p>
+        )}
 
         {notice?.kind === 'error' && (
-          <p className="form-notice error" role="alert">{notice.text}</p>
+          <p className="form-notice error" role="alert">{t(`errors.${notice.error}`)}</p>
         )}
 
         <button
           className="button button-dark submit-button"
           type="submit"
-          disabled={submitting || plans.length === 0}
+          disabled={submitting || !planReady}
         >
-          {submitting ? 'Sending your note…' : 'Send an inquiry'} <span>↗</span>
+          {submitting ? t('submitting') : t('submit')} <span>↗</span>
         </button>
-        <p className="form-privacy">
-          By submitting, you agree that our team may contact you about your event.
-        </p>
+        <p className="form-privacy">{t('privacy')}</p>
       </form>
     </section>
   )
 }
-

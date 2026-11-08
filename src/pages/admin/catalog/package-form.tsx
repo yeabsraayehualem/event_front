@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { AdminShell } from '@/components/admin/admin-shell'
 import { RecordFormView } from '@/components/admin/record-form-view'
@@ -9,7 +10,6 @@ import { formatPrice, type CatalogContent, type CatalogPackage, type CatalogPlan
 
 type Draft = { name: string; plan: string; price: string; description: string; contentIds: number[] }
 
-const fieldLabels = { name: 'Package name', plan: 'Plan', price: 'Price', content_ids: 'Included services' }
 
 function draftFrom(item: CatalogPackage): Draft {
   return { name: item.name, plan: String(item.plan), price: item.price, description: item.description, contentIds: item.content_ids }
@@ -20,6 +20,7 @@ function signature(draft: Draft) {
 }
 
 export function CatalogPackageFormPage() {
+  const { t } = useTranslation('catalog')
   const { id } = useParams<{ id: string }>()
   const isNew = !id
   const [searchParams] = useSearchParams()
@@ -40,9 +41,9 @@ export function CatalogPackageFormPage() {
   const load = useCallback(async (signal?: AbortSignal) => {
     try {
       const [loadedPlans, loadedContents, loadedItem] = await Promise.all([
-        apiRequest<CatalogPlan[]>('/event/catalog/plans/', { signal, fallback: 'Could not load plans.' }),
-        apiRequest<CatalogContent[]>('/event/catalog/contents/', { signal, fallback: 'Could not load services.' }),
-        isNew ? Promise.resolve(null) : apiRequest<CatalogPackage>(`/event/catalog/packages/${id}/`, { signal, fallback: 'Could not load this package.' }),
+        apiRequest<CatalogPlan[]>('/event/catalog/plans/', { signal, fallback: t('packageForm.loadPlans') }),
+        apiRequest<CatalogContent[]>('/event/catalog/contents/', { signal, fallback: t('packageForm.loadServices') }),
+        isNew ? Promise.resolve(null) : apiRequest<CatalogPackage>(`/event/catalog/packages/${id}/`, { signal, fallback: t('packageForm.loadFailed') }),
       ])
       setPlans(loadedPlans)
       setContents(loadedContents)
@@ -78,12 +79,12 @@ export function CatalogPackageFormPage() {
     setCreatingService(true)
     setError('')
     try {
-      const created = await apiRequest<CatalogContent>('/event/catalog/contents/', { method: 'POST', body: { name }, fallback: 'Could not create this service.' })
+      const created = await apiRequest<CatalogContent>('/event/catalog/contents/', { method: 'POST', body: { name }, fallback: t('packageForm.createServiceFailed') })
       setContents((current) => [...current, created].sort((a, b) => a.name.localeCompare(b.name)))
       update({ contentIds: [...draft.contentIds, created.id] })
       setNewService('')
     } catch (createError) {
-      setError(createError instanceof Error ? createError.message : 'Could not create this service.')
+      setError(createError instanceof Error ? createError.message : t('packageForm.createServiceFailed'))
     } finally {
       setCreatingService(false)
     }
@@ -99,7 +100,7 @@ export function CatalogPackageFormPage() {
         description: draft.description.trim(), content_ids: draft.contentIds,
       }
       const result = await apiRequest<CatalogPackage>(isNew ? '/event/catalog/packages/' : `/event/catalog/packages/${id}/`, {
-        method: isNew ? 'POST' : 'PATCH', body, fallback: 'Could not save this package.', labels: fieldLabels,
+        method: isNew ? 'POST' : 'PATCH', body, fallback: t('packageForm.saveFailed'), labels: { name: t('packageForm.name'), plan: t('packageForm.plan'), price: t('packageForm.price'), content_ids: t('packageForm.includedServices') },
       })
       if (isNew) {
         navigate(`/dashboard/catalog/packages/${result.id}`, { replace: true })
@@ -110,7 +111,7 @@ export function CatalogPackageFormPage() {
       setSaved(true)
       setChatterKey((key) => key + 1)
     } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : 'Could not save this package.')
+      setError(saveError instanceof Error ? saveError.message : t('packageForm.saveFailed'))
     } finally {
       setSaving(false)
     }
@@ -119,31 +120,31 @@ export function CatalogPackageFormPage() {
   const contentOptions = contents.map((content) => ({ id: content.id, label: content.name }))
   const servicesPage = (
     <>
-      <p className="o-form-hint">What the customer gets with this package. Deposit invoices for won leads are split across these services.</p>
+      <p className="o-form-hint">{t('packageForm.servicesHint')}</p>
       {editable ? (
         <>
-          <Many2ManyTags options={contentOptions} value={draft.contentIds} onChange={(ids) => update({ contentIds: ids })} placeholder="Add a service…" aria-label="Included services" />
+          <Many2ManyTags options={contentOptions} value={draft.contentIds} onChange={(ids) => update({ contentIds: ids })} placeholder={t('packageForm.addService')} aria-label={t('packageForm.includedServices')} />
           <div className="cat-quick-create">
             <input
               className="o-input"
-              aria-label="New service name"
-              placeholder="Not listed? Type a new service…"
+              aria-label={t('packageForm.newServiceName')}
+              placeholder={t('packageForm.newServicePlaceholder')}
               value={newService}
               onChange={(event) => setNewService(event.target.value)}
               onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); void createService() } }}
             />
             <button type="button" className="o-btn o-btn-secondary o-btn-sm" disabled={!newService.trim() || creatingService} onClick={() => void createService()}>
-              {creatingService ? 'Creating…' : 'Create & add'}
+              {creatingService ? t('packageForm.creating') : t('packageForm.createAdd')}
             </button>
           </div>
         </>
       ) : (
         <div className="cat-tags">
           {item?.contents.map((content) => <span key={content.id} className="o-tag">{content.name}</span>)}
-          {!item?.contents.length && <span className="cat-muted">No services listed.</span>}
+          {!item?.contents.length && <span className="cat-muted">{t('packageForm.noServices')}</span>}
         </div>
       )}
-      <p className="o-form-hint"><Link to="/dashboard/catalog/services" className="cat-row-link">Manage all services</Link></p>
+      <p className="o-form-hint"><Link to="/dashboard/catalog/services" className="cat-row-link">{t('packageForm.manageServices')}</Link></p>
     </>
   )
 
@@ -153,33 +154,33 @@ export function CatalogPackageFormPage() {
       {error && <p className="dashboard-message dashboard-message--error" role="alert">{error}</p>}
       {!loading && (isNew || item) && (
         <RecordFormView
-          modelName="Package"
+          modelName={t('packages.model')}
           title={draft.name}
-          subtitle={item ? `${item.plan_name} · ${formatPrice(item.price)}` : 'A priced bundle of services within a plan.'}
+          subtitle={item ? `${item.plan_name} · ${formatPrice(item.price)}` : t('packageForm.newSubtitle')}
           recordId={item?.id}
           backHref="/dashboard/catalog/packages"
-          backLabel="Packages"
+          backLabel={t('packageForm.back')}
           headerAside={item && <>
             <Link to={`/dashboard/catalog/plans/${item.plan}`} className="o-stat-button">
               <span className="o-stat-icon" aria-hidden="true">◈</span>
-              <span><strong>{item.plan_name}</strong><small>Plan</small></span>
+              <span><strong>{item.plan_name}</strong><small>{t('packageForm.statPlan')}</small></span>
             </Link>
             <div className="o-stat-button">
               <span className="o-stat-icon" aria-hidden="true">✦</span>
-              <span><strong>{item.lead_count}</strong><small>Leads</small></span>
+              <span><strong>{item.lead_count}</strong><small>{t('packageForm.statLeads')}</small></span>
             </div>
           </>}
           headerFields={[
-            { name: 'name', label: 'Package name', value: draft.name, required: true, placeholder: 'e.g. Gold' },
-            { name: 'price', label: 'Price (ETB)', type: 'number', value: draft.price, placeholder: '0 = quote on request', helpText: 'Tax-inclusive. Used for the automatic deposit invoice.' },
+            { name: 'name', label: t('packageForm.name'), value: draft.name, required: true, placeholder: t('packageForm.namePlaceholder') },
+            { name: 'price', label: t('packageForm.priceLabel'), type: 'number', value: draft.price, placeholder: t('packageForm.pricePlaceholder'), helpText: t('packageForm.priceHelp') },
             {
-              name: 'plan', label: 'Plan', type: 'select', value: draft.plan, required: true,
-              options: [{ value: '', label: 'Choose a plan' }, ...plans.map((plan) => ({ value: String(plan.id), label: plan.name }))],
+              name: 'plan', label: t('packageForm.plan'), type: 'select', value: draft.plan, required: true,
+              options: [{ value: '', label: t('packageForm.choosePlan') }, ...plans.map((plan) => ({ value: String(plan.id), label: plan.name }))],
             },
-            { name: 'description', label: 'Description', type: 'textarea', value: draft.description, fullWidth: true, placeholder: 'Optional notes shown with the package.' },
+            { name: 'description', label: t('packageForm.description'), type: 'textarea', value: draft.description, fullWidth: true, placeholder: t('packageForm.descriptionPlaceholder') },
           ]}
           onFieldChange={(name, value) => update({ [name]: value } as Partial<Draft>)}
-          tabs={[{ id: 'services', label: 'Included services', badge: draft.contentIds.length, content: servicesPage }]}
+          tabs={[{ id: 'services', label: t('packageForm.includedServices'), badge: draft.contentIds.length, content: servicesPage }]}
           onSubmit={editable ? (event) => void save(event) : undefined}
           dirty={dirty}
           onDiscard={() => {

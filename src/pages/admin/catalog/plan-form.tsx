@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { AdminShell } from '@/components/admin/admin-shell'
 import { RecordFormView } from '@/components/admin/record-form-view'
@@ -13,7 +14,6 @@ type EventTypeRow = { key: string; id?: number; name: string; lead_count: number
 type Draft = { name: string; description: string; eventTypes: EventTypeRow[] }
 
 const emptyDraft: Draft = { name: '', description: '', eventTypes: [] }
-const fieldLabels = { name: 'Plan name', event_types: 'Event types' }
 
 function draftFrom(plan: CatalogPlan): Draft {
   return {
@@ -28,6 +28,7 @@ function signature(draft: Draft) {
 }
 
 export function CatalogPlanFormPage() {
+  const { t } = useTranslation('catalog')
   const { id } = useParams<{ id: string }>()
   const isNew = !id
   const navigate = useNavigate()
@@ -47,7 +48,7 @@ export function CatalogPlanFormPage() {
   const load = useCallback(async (signal?: AbortSignal) => {
     if (isNew) return
     try {
-      const loaded = await apiRequest<CatalogPlan>(`/event/catalog/plans/${id}/`, { signal, fallback: 'Could not load this plan.' })
+      const loaded = await apiRequest<CatalogPlan>(`/event/catalog/plans/${id}/`, { signal, fallback: t('planForm.loadFailed') })
       setPlan(loaded)
       setDraft(draftFrom(loaded))
     } catch (loadError) {
@@ -88,9 +89,9 @@ export function CatalogPlanFormPage() {
         method: 'POST', credentials: 'include', body,
         headers: { Accept: 'application/json', 'X-CSRFToken': await fetchCsrfToken() },
       })
-      if (!response.ok) throw new Error(getErrorMessage(await response.json(), 'The plan was saved, but its picture could not be uploaded.'))
+      if (!response.ok) throw new Error(getErrorMessage(await response.json(), t('planForm.imageUploadFailed')))
     } else if (removeImage) {
-      await apiRequest(`/event/catalog/plans/${planId}/image/`, { method: 'DELETE', fallback: 'Could not remove the picture.' })
+      await apiRequest(`/event/catalog/plans/${planId}/image/`, { method: 'DELETE', fallback: t('planForm.imageRemoveFailed') })
     }
   }
 
@@ -105,7 +106,7 @@ export function CatalogPlanFormPage() {
         event_types: draft.eventTypes.filter((row) => row.name.trim()).map((row) => ({ ...(row.id ? { id: row.id } : {}), name: row.name.trim() })),
       }
       const result = await apiRequest<CatalogPlan>(isNew ? '/event/catalog/plans/' : `/event/catalog/plans/${id}/`, {
-        method: isNew ? 'POST' : 'PATCH', body, fallback: 'Could not save this plan.', labels: fieldLabels,
+        method: isNew ? 'POST' : 'PATCH', body, fallback: t('planForm.saveFailed'), labels: { name: t('planForm.name'), event_types: t('planForm.eventTypes') },
       })
       await uploadImage(result.id)
       resetImage()
@@ -117,7 +118,7 @@ export function CatalogPlanFormPage() {
       setSaved(true)
       setChatterKey((key) => key + 1)
     } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : 'Could not save this plan.')
+      setError(saveError instanceof Error ? saveError.message : t('planForm.saveFailed'))
     } finally {
       setSaving(false)
     }
@@ -128,7 +129,7 @@ export function CatalogPlanFormPage() {
   const imagePicker = (
     <div className="cat-image-field">
       <div className="cat-image-preview">
-        {shownImage ? <img src={shownImage} alt={`${draft.name || 'Plan'} picture`} /> : <span aria-hidden="true">No picture</span>}
+        {shownImage ? <img src={shownImage} alt={t('planForm.pictureAlt', { name: draft.name || t('planForm.planFallback') })} /> : <span aria-hidden="true">{t('planForm.noPicture')}</span>}
       </div>
       {editable && (
         <div className="cat-image-actions">
@@ -147,13 +148,13 @@ export function CatalogPlanFormPage() {
               setSaved(false)
             }}
           />
-          <label htmlFor="plan-image" className="o-btn o-btn-secondary o-btn-sm">{shownImage ? 'Replace' : 'Upload'}</label>
+          <label htmlFor="plan-image" className="o-btn o-btn-secondary o-btn-sm">{shownImage ? t('planForm.replace') : t('planForm.upload')}</label>
           {shownImage && (
             <button type="button" className="o-btn o-btn-link o-btn-sm o-btn-danger" onClick={() => {
               if (imageFile) resetImage()
               else setRemoveImage(true)
               setSaved(false)
-            }}>Remove</button>
+            }}>{t('planForm.remove')}</button>
           )}
         </div>
       )}
@@ -162,16 +163,16 @@ export function CatalogPlanFormPage() {
 
   const eventTypesPage = (
     <>
-      <p className="o-form-hint">The occasions this plan covers. Leads and the website inquiry form offer only these when this plan is chosen.</p>
+      <p className="o-form-hint">{t('planForm.eventTypesHint')}</p>
       <div className="o-list-wrap">
         <table className="o-list cat-list">
-          <thead><tr><th scope="col">Event type</th><th scope="col" className="o-num">Leads</th><th scope="col" className="o-list-actions"><span className="sr-only">Actions</span></th></tr></thead>
+          <thead><tr><th scope="col">{t('planForm.eventType')}</th><th scope="col" className="o-num">{t('planForm.leads')}</th><th scope="col" className="o-list-actions"><span className="sr-only">{t('planForm.actions')}</span></th></tr></thead>
           <tbody>
             {draft.eventTypes.map((row) => (
               <tr key={row.key} className={row.id ? '' : 'is-new'}>
                 <td>
                   {editable
-                    ? <input className="o-input" aria-label="Event type name" value={row.name} placeholder="e.g. Church wedding (Teklil)" onChange={(event) => updateRow(row.key, event.target.value)} />
+                    ? <input className="o-input" aria-label={t('planForm.eventTypeName')} value={row.name} placeholder={t('planForm.eventTypePlaceholder')} onChange={(event) => updateRow(row.key, event.target.value)} />
                     : <span className="o-field-value">{row.name}</span>}
                 </td>
                 <td className="o-num o-muted">{row.lead_count}</td>
@@ -181,15 +182,15 @@ export function CatalogPlanFormPage() {
                       type="button"
                       className="o-btn o-btn-link o-btn-sm o-btn-danger"
                       disabled={row.lead_count > 0}
-                      title={row.lead_count > 0 ? 'Used by leads — rename it instead' : 'Remove'}
-                      aria-label={`Remove ${row.name || 'event type'}`}
+                      title={row.lead_count > 0 ? t('planForm.usedByLeads') : t('planForm.remove')}
+                      aria-label={t('planForm.removeRow', { name: row.name || t('planForm.eventTypeFallback') })}
                       onClick={() => { setDraft((current) => ({ ...current, eventTypes: current.eventTypes.filter((item) => item.key !== row.key) })); setSaved(false) }}
                     >🗑</button>
                   )}
                 </td>
               </tr>
             ))}
-            {draft.eventTypes.length === 0 && <tr><td colSpan={3} className="o-list-empty">No event types yet.</td></tr>}
+            {draft.eventTypes.length === 0 && <tr><td colSpan={3} className="o-list-empty">{t('planForm.noEventTypes')}</td></tr>}
           </tbody>
         </table>
       </div>
@@ -197,7 +198,7 @@ export function CatalogPlanFormPage() {
         <button type="button" className="o-list-add" onClick={() => {
           setDraft((current) => ({ ...current, eventTypes: [...current.eventTypes, { key: `new-${Date.now()}`, name: '', lead_count: 0 }] }))
           setSaved(false)
-        }}>Add a line</button>
+        }}>{t('addLine')}</button>
       )}
     </>
   )
@@ -206,7 +207,7 @@ export function CatalogPlanFormPage() {
     <>
       <div className="o-list-wrap">
         <table className="o-list cat-list">
-          <thead><tr><th scope="col">Package</th><th scope="col" className="o-num">Services</th><th scope="col" className="o-num">Price</th></tr></thead>
+          <thead><tr><th scope="col">{t('planForm.package')}</th><th scope="col" className="o-num">{t('planForm.services')}</th><th scope="col" className="o-num">{t('planForm.price')}</th></tr></thead>
           <tbody>
             {plan.packages.map((item) => (
               <tr key={item.id}>
@@ -215,11 +216,11 @@ export function CatalogPlanFormPage() {
                 <td className="o-num">{formatPrice(item.price)}</td>
               </tr>
             ))}
-            {plan.packages.length === 0 && <tr><td colSpan={3} className="o-list-empty">No packages in this plan yet.</td></tr>}
+            {plan.packages.length === 0 && <tr><td colSpan={3} className="o-list-empty">{t('planForm.noPackages')}</td></tr>}
           </tbody>
         </table>
       </div>
-      {editable && <Link to={`/dashboard/catalog/packages/new?plan=${plan.id}`} className="o-list-add">Add a package</Link>}
+      {editable && <Link to={`/dashboard/catalog/packages/new?plan=${plan.id}`} className="o-list-add">{t('planForm.addPackage')}</Link>}
     </>
   )
 
@@ -229,31 +230,31 @@ export function CatalogPlanFormPage() {
       {error && <p className="dashboard-message dashboard-message--error" role="alert">{error}</p>}
       {!loading && (isNew || plan) && (
         <RecordFormView
-          modelName="Plan"
+          modelName={t('plans.model')}
           title={draft.name}
-          subtitle={plan ? `${plan.lead_count} ${plan.lead_count === 1 ? 'lead' : 'leads'} so far` : 'A celebration you offer, with its event types and packages.'}
+          subtitle={plan ? t('planForm.leadsSoFar', { count: plan.lead_count }) : t('planForm.newSubtitle')}
           recordId={plan?.id}
           backHref="/dashboard/catalog/plans"
-          backLabel="Plans"
+          backLabel={t('planForm.back')}
           headerAside={plan && <>
             <div className="o-stat-button">
               <span className="o-stat-icon" aria-hidden="true">◈</span>
-              <span><strong>{plan.packages.length}</strong><small>Packages</small></span>
+              <span><strong>{plan.packages.length}</strong><small>{t('planForm.statPackages')}</small></span>
             </div>
             <div className="o-stat-button">
               <span className="o-stat-icon" aria-hidden="true">✦</span>
-              <span><strong>{plan.lead_count}</strong><small>Leads</small></span>
+              <span><strong>{plan.lead_count}</strong><small>{t('planForm.statLeads')}</small></span>
             </div>
           </>}
           headerFields={[
-            { name: 'name', label: 'Plan name', value: draft.name, required: true, placeholder: 'e.g. Wedding' },
-            { name: 'image', label: 'Picture', render: imagePicker },
-            { name: 'description', label: 'Description', type: 'textarea', value: draft.description, fullWidth: true, placeholder: 'Shown on the website plan card.' },
+            { name: 'name', label: t('planForm.name'), value: draft.name, required: true, placeholder: t('planForm.namePlaceholder') },
+            { name: 'image', label: t('planForm.picture'), render: imagePicker },
+            { name: 'description', label: t('planForm.description'), type: 'textarea', value: draft.description, fullWidth: true, placeholder: t('planForm.descriptionPlaceholder') },
           ]}
           onFieldChange={(name, value) => { setDraft((current) => ({ ...current, [name]: value })); setSaved(false) }}
           tabs={[
-            { id: 'event-types', label: 'Event types', badge: draft.eventTypes.length, content: eventTypesPage },
-            ...(plan ? [{ id: 'packages', label: 'Packages', badge: plan.packages.length, content: packagesPage }] : []),
+            { id: 'event-types', label: t('planForm.eventTypes'), badge: draft.eventTypes.length, content: eventTypesPage },
+            ...(plan ? [{ id: 'packages', label: t('planForm.packagesTab'), badge: plan.packages.length, content: packagesPage }] : []),
           ]}
           onSubmit={editable ? (event) => void save(event) : undefined}
           dirty={isNew ? undefined : dirty}

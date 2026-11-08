@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
+import { useTranslation } from 'react-i18next'
 import { AccessLink } from '@/components/admin/access-link'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { AdminShell } from '@/components/admin/admin-shell'
@@ -35,7 +36,6 @@ const EMPTY: Draft = {
   id_type: '', id_number: '', id_verified: 'false', emergency_contact: '', payment_account: '', hire_date: '', notes: '', active: true,
 }
 
-const fieldLabels = { full_name: 'Name', wage_basis: 'Pay basis', id_number: 'ID number', skill_ids: 'Skills' }
 
 function draftFrom(person: Employee): Draft {
   return {
@@ -47,6 +47,7 @@ function draftFrom(person: Employee): Draft {
 }
 
 export function CrewFormPage() {
+  const { t } = useTranslation('crew')
   const { id } = useParams<{ id: string }>()
   const isNew = !id
   const navigate = useNavigate()
@@ -63,8 +64,8 @@ export function CrewFormPage() {
   const load = useCallback(async (signal?: AbortSignal) => {
     try {
       const [loadedOptions, loadedPerson] = await Promise.all([
-        apiRequest<HROptions>('/hr/options/', { signal, fallback: 'Could not load crew options.' }),
-        isNew ? Promise.resolve(null) : apiRequest<Employee>(`/hr/employees/${id}/`, { signal, fallback: 'Could not load this person.' }),
+        apiRequest<HROptions>('/hr/options/', { signal, fallback: t('loadOptions') }),
+        isNew ? Promise.resolve(null) : apiRequest<Employee>(`/hr/employees/${id}/`, { signal, fallback: t('form.loadFailed') }),
       ])
       setOptions(loadedOptions)
       if (loadedPerson) {
@@ -100,7 +101,7 @@ export function CrewFormPage() {
         hire_date: draft.hire_date || null, notes: draft.notes.trim(), active: draft.active,
       }
       const result = await apiRequest<Employee>(isNew ? '/hr/employees/' : `/hr/employees/${id}/`, {
-        method: isNew ? 'POST' : 'PATCH', body, fallback: 'Could not save this person.', labels: fieldLabels,
+        method: isNew ? 'POST' : 'PATCH', body, fallback: t('form.saveFailed'), labels: { full_name: t('form.name'), wage_basis: t('form.payBasis'), id_number: t('form.idNumber'), skill_ids: t('form.skills') },
       })
       if (isNew) {
         navigate(`/dashboard/crew/${result.id}`, { replace: true })
@@ -111,7 +112,7 @@ export function CrewFormPage() {
       setSaved(true)
       setChatterKey((key) => key + 1)
     } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : 'Could not save this person.')
+      setError(saveError instanceof Error ? saveError.message : t('form.saveFailed'))
     } finally {
       setSaving(false)
     }
@@ -129,11 +130,11 @@ export function CrewFormPage() {
         headers: { Accept: 'application/json', 'X-CSRFToken': await fetchCsrfToken() },
       })
       const data: unknown = await response.json()
-      if (!response.ok) throw new Error(getErrorMessage(data, 'Could not upload the ID copy.'))
+      if (!response.ok) throw new Error(getErrorMessage(data, t('form.uploadFailed')))
       setPerson(data as Employee)
       setChatterKey((key) => key + 1)
     } catch (uploadError) {
-      setError(uploadError instanceof Error ? uploadError.message : 'Could not upload the ID copy.')
+      setError(uploadError instanceof Error ? uploadError.message : t('form.uploadFailed'))
     } finally {
       setUploading(false)
     }
@@ -151,13 +152,13 @@ export function CrewFormPage() {
   const editable = options.can_edit
   // Freelancers can't be on a monthly salary.
   const wageOptions = options.wage_bases.filter((item) => draft.employment_type !== 'freelance' || item.value !== 'monthly')
-  const rateHelp = draft.wage_basis === 'monthly' ? 'Gross monthly salary. Paid through payroll, not per shift.'
-    : draft.wage_basis === 'daily' ? 'Paid per day worked on an event.' : 'A fixed fee for each event.'
+  const rateHelp = draft.wage_basis === 'monthly' ? t('form.helpMonthly')
+    : draft.wage_basis === 'daily' ? t('form.helpDaily') : t('form.helpEvent')
 
   const shiftsPage = person && (
     <div className="o-list-wrap">
       <table className="o-list">
-        <thead><tr><th scope="col">Event</th><th scope="col">Role</th><th scope="col">When</th><th scope="col">Status</th><th scope="col" className="o-num">Amount</th><th scope="col">Paid</th></tr></thead>
+        <thead><tr><th scope="col">{t('form.event')}</th><th scope="col">{t('form.role')}</th><th scope="col">{t('form.when')}</th><th scope="col">{t('form.status')}</th><th scope="col" className="o-num">{t('form.amount')}</th><th scope="col">{t('form.paid')}</th></tr></thead>
         <tbody>
           {person.shifts.map((shift) => (
             <tr key={shift.id}>
@@ -169,7 +170,7 @@ export function CrewFormPage() {
               <td>{shift.payout ? <AccessLink module="expenses" to={`/dashboard/expenses/${shift.payout.id}`} className="cat-row-link">{shift.payout.reference}</AccessLink> : <span className="o-muted">—</span>}</td>
             </tr>
           ))}
-          {person.shifts.length === 0 && <tr><td colSpan={6} className="o-list-empty">Not booked on any event yet.</td></tr>}
+          {person.shifts.length === 0 && <tr><td colSpan={6} className="o-list-empty">{t('form.noShifts')}</td></tr>}
         </tbody>
       </table>
     </div>
@@ -180,38 +181,38 @@ export function CrewFormPage() {
       {error && <p className="dashboard-message dashboard-message--error" role="alert">{error}</p>}
       {(isNew || person) && (
         <RecordFormView
-          modelName={draft.employment_type === 'permanent' ? 'Staff member' : 'Freelancer'}
+          modelName={draft.employment_type === 'permanent' ? t('form.staffMember') : t('form.freelancer')}
           title={draft.full_name}
-          subtitle={person ? `${person.job_title || person.employment_type_label} · ${rateLabel(person.wage_basis, person.rate)}` : 'Someone who works your events.'}
+          subtitle={person ? `${person.job_title || person.employment_type_label} · ${rateLabel(person.wage_basis, person.rate)}` : t('form.newSubtitle')}
           recordId={person?.id}
           backHref="/dashboard/crew"
-          backLabel="Directory"
-          ribbon={person && !person.active ? { label: 'Archived', tone: 'danger' } : null}
+          backLabel={t('form.back')}
+          ribbon={person && !person.active ? { label: t('form.archived'), tone: 'danger' } : null}
           actionSlot={person && editable && <>
-            <Link to={`/dashboard/crew-schedule?employee=${person.id}`} className="o-btn o-btn-primary">Book on an event</Link>
-            <button type="button" className="o-btn o-btn-secondary" onClick={() => update({ active: !draft.active })}>{draft.active ? 'Archive' : 'Restore'}</button>
+            <Link to={`/dashboard/crew-schedule?employee=${person.id}`} className="o-btn o-btn-primary">{t('form.book')}</Link>
+            <button type="button" className="o-btn o-btn-secondary" onClick={() => update({ active: !draft.active })}>{draft.active ? t('form.archive') : t('form.restore')}</button>
           </>}
           headerAside={person && <>
             <div className="o-stat-button">
               <span className="o-stat-icon" aria-hidden="true">#</span>
-              <span><strong>{person.totals.events_worked}</strong><small>Events worked</small></span>
+              <span><strong>{person.totals.events_worked}</strong><small>{t('form.eventsWorked')}</small></span>
             </div>
             <div className="o-stat-button">
               <span className="o-stat-icon" aria-hidden="true">Br</span>
-              <span><strong>{formatMoney(person.totals.paid_total)}</strong><small>Paid out</small></span>
+              <span><strong>{formatMoney(person.totals.paid_total)}</strong><small>{t('form.paidOut')}</small></span>
             </div>
             <div className={`o-stat-button${person.id_verified ? '' : ' is-danger'}`}>
               <span className="o-stat-icon" aria-hidden="true">✓</span>
-              <span><strong>{person.id_verified ? 'Verified' : 'Not verified'}</strong><small>ID</small></span>
+              <span><strong>{person.id_verified ? t('form.verified') : t('form.notVerified')}</strong><small>{t('form.id')}</small></span>
             </div>
           </>}
           headerFields={[
-            { name: 'full_name', label: 'Full name', value: draft.full_name, required: true },
-            { name: 'phone', label: 'Phone', type: 'tel', value: draft.phone, required: true },
-            { name: 'employment_type', label: 'Type', type: 'select', value: draft.employment_type, options: options.employment_types },
-            { name: 'job_title', label: 'Job title', value: draft.job_title, placeholder: 'e.g. Head usher' },
-            { name: 'wage_basis', label: 'Paid by', type: 'select', value: draft.wage_basis, options: wageOptions },
-            { name: 'rate', label: 'Rate (ETB)', type: 'number', value: draft.rate, required: true, helpText: rateHelp },
+            { name: 'full_name', label: t('form.fullName'), value: draft.full_name, required: true },
+            { name: 'phone', label: t('form.phone'), type: 'tel', value: draft.phone, required: true },
+            { name: 'employment_type', label: t('form.type'), type: 'select', value: draft.employment_type, options: options.employment_types },
+            { name: 'job_title', label: t('form.jobTitle'), value: draft.job_title, placeholder: t('form.jobTitlePlaceholder') },
+            { name: 'wage_basis', label: t('form.paidBy'), type: 'select', value: draft.wage_basis, options: wageOptions },
+            { name: 'rate', label: t('form.rate'), type: 'number', value: draft.rate, required: true, helpText: rateHelp },
           ]}
           onFieldChange={(name, value) => {
             if (name === 'employment_type') {
@@ -222,44 +223,44 @@ export function CrewFormPage() {
           }}
           tabs={[
             {
-              id: 'skills', label: 'Skills', badge: draft.skillIds.length, content: (
+              id: 'skills', label: t('form.skills'), badge: draft.skillIds.length, content: (
                 <>
-                  <p className="o-form-hint">What this person can do. Used to filter the directory when staffing an event.</p>
+                  <p className="o-form-hint">{t('form.skillsHint')}</p>
                   {editable
-                    ? <Many2ManyTags options={options.skills.map((skill) => ({ id: skill.id, label: skill.name }))} value={draft.skillIds} onChange={(ids) => update({ skillIds: ids })} placeholder="Add a skill…" aria-label="Skills" />
+                    ? <Many2ManyTags options={options.skills.map((skill) => ({ id: skill.id, label: skill.name }))} value={draft.skillIds} onChange={(ids) => update({ skillIds: ids })} placeholder={t('form.addSkill')} aria-label={t('form.skills')} />
                     : <div className="cat-tags">{person?.skills.map((skill) => <span key={skill.id} className="o-tag">{skill.name}</span>)}</div>}
                 </>
               ),
             },
             {
-              id: 'identity', label: 'ID & payment', sections: [
+              id: 'identity', label: t('form.identityTab'), sections: [
                 {
-                  title: 'Identification', fields: [
-                    { name: 'id_type', label: 'ID type', type: 'select', value: draft.id_type, options: [{ value: '', label: 'Not recorded' }, ...options.id_types] },
-                    { name: 'id_number', label: 'ID number', value: draft.id_number },
-                    { name: 'id_verified', label: 'Verified', type: 'select', value: draft.id_verified, options: [{ value: 'false', label: 'No' }, { value: 'true', label: 'Yes, ID checked' }] },
+                  title: t('form.identification'), fields: [
+                    { name: 'id_type', label: t('form.idType'), type: 'select', value: draft.id_type, options: [{ value: '', label: t('form.notRecorded') }, ...options.id_types] },
+                    { name: 'id_number', label: t('form.idNumber'), value: draft.id_number },
+                    { name: 'id_verified', label: t('form.verifiedLabel'), type: 'select', value: draft.id_verified, options: [{ value: 'false', label: t('form.no') }, { value: 'true', label: t('form.yesChecked') }] },
                     ...(person ? [{
-                      name: 'id_document', label: 'ID copy', type: 'custom' as const,
+                      name: 'id_document', label: t('form.idCopy'), type: 'custom' as const,
                       render: (
                         <div className="proc-datetime">
-                          {person.id_document_url && <a href={person.id_document_url} target="_blank" rel="noreferrer" className="cat-row-link">View</a>}
-                          {editable && <input className="o-input" type="file" accept=".pdf,.jpg,.jpeg,.png" aria-label="Upload ID copy" disabled={uploading} onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadId(file) }} />}
+                          {person.id_document_url && <a href={person.id_document_url} target="_blank" rel="noreferrer" className="cat-row-link">{t('form.view')}</a>}
+                          {editable && <input className="o-input" type="file" accept=".pdf,.jpg,.jpeg,.png" aria-label={t('form.uploadId')} disabled={uploading} onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadId(file) }} />}
                         </div>
                       ),
                     }] : []),
                   ],
                 },
                 {
-                  title: 'Payment & contact', fields: [
-                    { name: 'payment_account', label: 'Pay to', value: draft.payment_account, placeholder: 'Bank account or telebirr number' },
-                    { name: 'emergency_contact', label: 'Emergency contact', value: draft.emergency_contact, placeholder: 'Name and phone' },
-                    { name: 'hire_date', label: 'Started', type: 'date', value: draft.hire_date },
+                  title: t('form.paymentContact'), fields: [
+                    { name: 'payment_account', label: t('form.payTo'), value: draft.payment_account, placeholder: t('form.payToPlaceholder') },
+                    { name: 'emergency_contact', label: t('form.emergency'), value: draft.emergency_contact, placeholder: t('form.emergencyPlaceholder') },
+                    { name: 'hire_date', label: t('form.started'), type: 'date', value: draft.hire_date },
                   ],
                 },
-                { title: 'Notes', fields: [{ name: 'notes', label: 'Notes', type: 'textarea', value: draft.notes, fullWidth: true }] },
+                { title: t('form.notes'), fields: [{ name: 'notes', label: t('form.notes'), type: 'textarea', value: draft.notes, fullWidth: true }] },
               ],
             },
-            ...(person ? [{ id: 'shifts', label: 'Events', badge: person.shifts.length, content: shiftsPage }] : []),
+            ...(person ? [{ id: 'shifts', label: t('form.eventsTab'), badge: person.shifts.length, content: shiftsPage }] : []),
           ]}
           onSubmit={editable ? (event) => void save(event) : undefined}
           dirty={dirty}

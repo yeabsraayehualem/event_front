@@ -1,4 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
+import { useTranslation } from 'react-i18next'
+import i18n from '@/i18n'
+import type navEn from '@/i18n/en/nav'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { AdminShell } from '@/components/admin/admin-shell'
 import { RecordFormView } from '@/components/admin/record-form-view'
@@ -8,7 +11,6 @@ import { initials, lastSeen, type StaffUser, type UserOptions } from './types'
 type Draft = { first_name: string; last_name: string; phone: string; email: string; role: string; employee: string; password: string }
 
 const EMPTY: Draft = { first_name: '', last_name: '', phone: '', email: '', role: 'staff', employee: '', password: '' }
-const fieldLabels = { phone: 'Phone', email: 'Email', role: 'Role', password: 'Password', employee_id: 'Crew record' }
 
 function draftFrom(user: StaffUser): Draft {
   return {
@@ -17,22 +19,34 @@ function draftFrom(user: StaffUser): Draft {
   }
 }
 
+/** Access-table module → its menu name in the `nav` translations. */
+const MODULE_NAV: Record<string, keyof typeof navEn> = {
+  dashboard: 'dashboard', leads: 'leads', invoices: 'invoices', expenses: 'expenses', projects: 'projects',
+  catalog: 'catalog', purchase_orders: 'purchaseOrders', vendors: 'vendors', crew: 'crew', payroll: 'payroll', users: 'users',
+}
+
+function moduleLabel(module: string) {
+  return MODULE_NAV[module] ? i18n.t(`nav:${MODULE_NAV[module]}`) : module.replace(/_/g, ' ')
+}
+
 function PasswordNotice({ password, name, onDone }: { password: string; name: string; onDone: () => void }) {
+  const { t } = useTranslation('users')
   const [copied, setCopied] = useState(false)
   return (
     <div className="usr-password" role="status">
       <div>
-        <strong>Temporary password for {name}</strong>
-        <span>Share it privately. It won’t be shown again. They can change it from the menu after signing in.</span>
+        <strong>{t('form.tempPasswordFor', { name })}</strong>
+        <span>{t('form.tempPasswordHint')}</span>
       </div>
       <code>{password}</code>
-      <button type="button" className="o-btn o-btn-secondary o-btn-sm" onClick={() => { void navigator.clipboard?.writeText(password); setCopied(true) }}>{copied ? 'Copied' : 'Copy'}</button>
-      <button type="button" className="o-btn o-btn-link o-btn-sm" onClick={onDone}>Done</button>
+      <button type="button" className="o-btn o-btn-secondary o-btn-sm" onClick={() => { void navigator.clipboard?.writeText(password); setCopied(true) }}>{copied ? t('form.copied') : t('form.copy')}</button>
+      <button type="button" className="o-btn o-btn-link o-btn-sm" onClick={onDone}>{t('form.done')}</button>
     </div>
   )
 }
 
 export function UserFormPage() {
+  const { t } = useTranslation('users')
   const { id } = useParams<{ id: string }>()
   const isNew = !id
   const navigate = useNavigate()
@@ -51,8 +65,8 @@ export function UserFormPage() {
   const load = useCallback(async (signal?: AbortSignal) => {
     try {
       const [loadedOptions, loadedUser] = await Promise.all([
-        apiRequest<UserOptions>('/user/users/options/', { signal, fallback: 'Could not load roles.' }),
-        isNew ? Promise.resolve(null) : apiRequest<StaffUser>(`/user/users/${id}/`, { signal, fallback: 'Could not load this user.' }),
+        apiRequest<UserOptions>('/user/users/options/', { signal, fallback: t('loadRoles') }),
+        isNew ? Promise.resolve(null) : apiRequest<StaffUser>(`/user/users/${id}/`, { signal, fallback: t('form.loadFailed') }),
       ])
       setOptions(loadedOptions)
       if (loadedUser) { setUser(loadedUser); setDraft(draftFrom(loadedUser)) }
@@ -85,7 +99,7 @@ export function UserFormPage() {
       }
       if (isNew && draft.password) body.password = draft.password
       const result = await apiRequest<StaffUser>(isNew ? '/user/users/' : `/user/users/${id}/`, {
-        method: isNew ? 'POST' : 'PATCH', body, fallback: 'Could not save this user.', labels: fieldLabels,
+        method: isNew ? 'POST' : 'PATCH', body, fallback: t('form.saveFailed'), labels: { phone: t('form.phone'), email: t('form.email'), role: t('role'), password: t('form.password'), employee_id: t('crewRecord') },
       })
       if (isNew) {
         navigate(`/dashboard/users/${result.id}`, { replace: true, state: { temporaryPassword: result.temporary_password } })
@@ -96,7 +110,7 @@ export function UserFormPage() {
       setSaved(true)
       setChatterKey((key) => key + 1)
     } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : 'Could not save this user.')
+      setError(saveError instanceof Error ? saveError.message : t('form.saveFailed'))
     } finally {
       setSaving(false)
     }
@@ -104,30 +118,30 @@ export function UserFormPage() {
 
   async function setActive(active: boolean) {
     if (!user) return
-    if (!active && !window.confirm(`Deactivate ${user.full_name}? They’ll be signed out and can’t sign in until reactivated. Their history is kept.`)) return
+    if (!active && !window.confirm(t('form.confirmDeactivate', { name: user.full_name }))) return
     setBusy(true)
     setError('')
     try {
-      const result = await apiRequest<StaffUser>(`/user/users/${user.id}/`, { method: 'PATCH', body: { is_active: active }, fallback: 'Could not update this user.' })
+      const result = await apiRequest<StaffUser>(`/user/users/${user.id}/`, { method: 'PATCH', body: { is_active: active }, fallback: t('form.updateFailed') })
       setUser(result)
       setChatterKey((key) => key + 1)
     } catch (activeError) {
-      setError(activeError instanceof Error ? activeError.message : 'Could not update this user.')
+      setError(activeError instanceof Error ? activeError.message : t('form.updateFailed'))
     } finally {
       setBusy(false)
     }
   }
 
   async function resetPassword() {
-    if (!user || !window.confirm(`Reset ${user.full_name}’s password? Their current password stops working and they’re signed out.`)) return
+    if (!user || !window.confirm(t('form.confirmReset', { name: user.full_name }))) return
     setBusy(true)
     setError('')
     try {
-      const result = await apiRequest<{ temporary_password?: string }>(`/user/users/${user.id}/password/`, { method: 'POST', body: {}, fallback: 'Could not reset the password.' })
+      const result = await apiRequest<{ temporary_password?: string }>(`/user/users/${user.id}/password/`, { method: 'POST', body: {}, fallback: t('form.resetFailed') })
       setTemporaryPassword(result.temporary_password ?? '')
       setChatterKey((key) => key + 1)
     } catch (resetError) {
-      setError(resetError instanceof Error ? resetError.message : 'Could not reset the password.')
+      setError(resetError instanceof Error ? resetError.message : t('form.resetFailed'))
     } finally {
       setBusy(false)
     }
@@ -142,12 +156,12 @@ export function UserFormPage() {
     )
   }
 
-  const roles = lockedSuper ? [{ value: 'super', label: 'Super', description: 'Everything, including other super users.', active_count: 0 }] : options.roles
+  const roles = lockedSuper ? [{ value: 'super', label: t('super'), description: t('form.superDescription'), active_count: 0 }] : options.roles
   const freeEmployees = options.employees.filter((employee) => !employee.user_id || employee.user_id === user?.id)
   const name = [draft.first_name, draft.last_name].filter(Boolean).join(' ') || draft.phone
 
   const rolePicker = (
-    <div className="usr-roles" role="radiogroup" aria-label="Role">
+    <div className="usr-roles" role="radiogroup" aria-label={t('role')}>
       {roles.map((item) => {
         const selected = draft.role === item.value
         const disabled = isMe || lockedSuper
@@ -156,7 +170,7 @@ export function UserFormPage() {
             <input type="radio" name="role" value={item.value} checked={selected} disabled={disabled} onChange={() => update({ role: item.value })} />
             <span className="usr-role-card-head">
               <span className={`usr-role role-${item.value}`}>{item.label}</span>
-              {item.active_count > 0 && <small>{item.active_count} active</small>}
+              {item.active_count > 0 && <small>{t('form.activeCount', { count: item.active_count })}</small>}
             </span>
             <span className="usr-role-card-text">{item.description}</span>
             {item.access && item.access.length > 0 && (
@@ -164,7 +178,7 @@ export function UserFormPage() {
                 {item.access.map((entry) => (
                   <span key={entry.module} className={entry.actions.some((action) => action !== 'view') ? 'is-full' : ''}
                     title={entry.actions.join(', ')}>
-                    {entry.module}{entry.actions.some((action) => action !== 'view') ? '' : ' · view'}
+                    {moduleLabel(entry.module)}{entry.actions.some((action) => action !== 'view') ? '' : t('form.viewOnly')}
                   </span>
                 ))}
               </span>
@@ -172,8 +186,8 @@ export function UserFormPage() {
           </label>
         )
       })}
-      {isMe && <p className="o-form-hint">You can’t change your own role. Ask another admin.</p>}
-      {lockedSuper && <p className="o-form-hint">Only a super user can change a super user.</p>}
+      {isMe && <p className="o-form-hint">{t('form.ownRole')}</p>}
+      {lockedSuper && <p className="o-form-hint">{t('form.superOnly')}</p>}
     </div>
   )
 
@@ -183,45 +197,45 @@ export function UserFormPage() {
       {temporaryPassword && user && <PasswordNotice password={temporaryPassword} name={user.full_name} onDone={() => { setTemporaryPassword(''); navigate('.', { replace: true, state: null }) }} />}
       {(isNew || user) && (
         <RecordFormView
-          modelName="User"
+          modelName={t('model')}
           title={user ? user.full_name : name}
-          subtitle={user ? `${user.role_label} · ${lastSeen(user.last_login)}` : 'Someone who signs in to the system.'}
+          subtitle={user ? `${user.role_label} · ${lastSeen(user.last_login)}` : t('form.newSubtitle')}
           recordId={user?.id}
           backHref="/dashboard/users"
-          backLabel="Users"
-          ribbon={user && !user.is_active ? { label: 'Deactivated', tone: 'danger' } : null}
+          backLabel={t('form.back')}
+          ribbon={user && !user.is_active ? { label: t('deactivated'), tone: 'danger' } : null}
           actionSlot={user && !lockedSuper && <>
-            <button type="button" className="o-btn o-btn-secondary" disabled={busy} onClick={() => void resetPassword()}>Reset password</button>
+            <button type="button" className="o-btn o-btn-secondary" disabled={busy} onClick={() => void resetPassword()}>{t('form.resetPassword')}</button>
             {!isMe && (user.is_active
-              ? <button type="button" className="o-btn o-btn-link o-btn-danger" disabled={busy} onClick={() => void setActive(false)}>Deactivate</button>
-              : <button type="button" className="o-btn o-btn-primary" disabled={busy} onClick={() => void setActive(true)}>Reactivate</button>)}
+              ? <button type="button" className="o-btn o-btn-link o-btn-danger" disabled={busy} onClick={() => void setActive(false)}>{t('form.deactivate')}</button>
+              : <button type="button" className="o-btn o-btn-primary" disabled={busy} onClick={() => void setActive(true)}>{t('form.reactivate')}</button>)}
           </>}
           headerAside={user && <>
             <div className="o-stat-button">
               <span className={`usr-avatar role-${user.role}`} aria-hidden="true">{initials(user.full_name)}</span>
-              <span><strong>{user.role_label}</strong><small>Role</small></span>
+              <span><strong>{user.role_label}</strong><small>{t('role')}</small></span>
             </div>
             {user.employee && (
               <Link to={`/dashboard/crew/${user.employee.id}`} className="o-stat-button">
                 <span className="o-stat-icon" aria-hidden="true">◈</span>
-                <span><strong>{user.employee.full_name}</strong><small>Crew record</small></span>
+                <span><strong>{user.employee.full_name}</strong><small>{t('crewRecord')}</small></span>
               </Link>
             )}
           </>}
           headerFields={[
-            { name: 'first_name', label: 'First name', value: draft.first_name, required: true },
-            { name: 'last_name', label: 'Last name', value: draft.last_name },
-            { name: 'phone', label: 'Phone (sign-in)', type: 'tel', value: draft.phone, required: true, readOnly: lockedSuper, helpText: 'They sign in with this number.' },
-            { name: 'email', label: 'Email', type: 'email', value: draft.email, readOnly: lockedSuper },
-            ...(isNew ? [{ name: 'password', label: 'Password', type: 'text' as const, value: draft.password, placeholder: 'Leave empty to generate one', helpText: 'At least 8 characters, not only numbers.' }] : []),
+            { name: 'first_name', label: t('form.firstName'), value: draft.first_name, required: true },
+            { name: 'last_name', label: t('form.lastName'), value: draft.last_name },
+            { name: 'phone', label: t('form.signInPhone'), type: 'tel', value: draft.phone, required: true, readOnly: lockedSuper, helpText: t('form.signInHelp') },
+            { name: 'email', label: t('form.email'), type: 'email', value: draft.email, readOnly: lockedSuper },
+            ...(isNew ? [{ name: 'password', label: t('form.password'), type: 'text' as const, value: draft.password, placeholder: t('form.passwordPlaceholder'), helpText: t('form.passwordHelp') }] : []),
             {
-              name: 'employee', label: 'Crew record', type: 'select', value: draft.employee, readOnly: lockedSuper,
-              options: [{ value: '', label: 'Not linked' }, ...freeEmployees.map((employee) => ({ value: String(employee.id), label: `${employee.full_name} · ${employee.phone}` }))],
-              helpText: 'Link if this person is also on the crew directory.',
+              name: 'employee', label: t('crewRecord'), type: 'select', value: draft.employee, readOnly: lockedSuper,
+              options: [{ value: '', label: t('form.notLinked') }, ...freeEmployees.map((employee) => ({ value: String(employee.id), label: `${employee.full_name} · ${employee.phone}` }))],
+              helpText: t('form.crewHelp'),
             },
           ]}
           onFieldChange={(field, value) => update({ [field]: value } as Partial<Draft>)}
-          tabs={[{ id: 'role', label: 'Role & access', content: rolePicker }]}
+          tabs={[{ id: 'role', label: t('form.roleTab'), content: rolePicker }]}
           onSubmit={lockedSuper ? undefined : (event) => void save(event)}
           dirty={dirty}
           onDiscard={() => {
@@ -231,7 +245,7 @@ export function UserFormPage() {
           }}
           saving={saving}
           saved={saved}
-          submitLabel={isNew ? 'Create user' : 'Save'}
+          submitLabel={isNew ? t('form.create') : t('form.save')}
           chatter={user ? { model: 'user', recordId: user.id, refreshKey: chatterKey } : undefined}
         />
       )}

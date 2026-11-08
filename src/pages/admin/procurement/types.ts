@@ -1,3 +1,4 @@
+import i18n, { formatMoney as formatBirr } from '@/i18n'
 export type Choice = { value: string; label: string }
 export type TaxProfile = { id: number; name: string; kind: string; rate: string; inclusive: boolean }
 
@@ -152,20 +153,16 @@ export type PurchaseOrder = {
 
 export type EventProcurement = BudgetSummary & { can_set_budget: boolean; orders: PurchaseOrderListItem[] }
 
-export const ORDER_STATUSES: Choice[] = [
-  { value: 'draft', label: 'Draft' },
-  { value: 'submitted', label: 'Waiting approval' },
-  { value: 'approved', label: 'Approved' },
-  { value: 'received', label: 'Paid' },
-  { value: 'cancelled', label: 'Cancelled' },
-]
+const ORDER_STATUS_VALUES = ['draft', 'submitted', 'approved', 'received', 'cancelled'] as const
+
+/** Purchase-order stages with labels in the current language (read on each render). */
+export function orderStatuses(): Choice[] {
+  return ORDER_STATUS_VALUES.map((value) => ({ value, label: i18n.t(`procurement:orderStatus.${value}`) }))
+}
 
 export function formatMoney(value: string | number | null | undefined) {
   if (value === null || value === undefined || value === '') return '—'
-  const amount = Number(value)
-  return Number.isFinite(amount)
-    ? new Intl.NumberFormat('en-ET', { style: 'currency', currency: 'ETB' }).format(amount)
-    : String(value)
+  return formatBirr(value)
 }
 
 /** Split an API datetime into the local date (YYYY-MM-DD) and time (HH:MM) the inputs use. */

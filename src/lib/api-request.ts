@@ -1,3 +1,4 @@
+import i18n from '@/i18n'
 import { apiBaseUrl } from '@/lib/api'
 import { fetchCsrfToken } from '@/lib/csrf'
 import { getErrorMessage } from '@/lib/api-errors'
@@ -12,7 +13,7 @@ type RequestOptions = {
 }
 
 /** JSON request to the API with the session cookie and, for writes, a CSRF token. Throws a readable Error. */
-export async function apiRequest<T>(path: string, { method = 'GET', body, signal, fallback = 'Something went wrong.', labels }: RequestOptions = {}): Promise<T> {
+export async function apiRequest<T>(path: string, { method = 'GET', body, signal, fallback = i18n.t('errors.generic'), labels }: RequestOptions = {}): Promise<T> {
   const headers: Record<string, string> = { Accept: 'application/json' }
   if (method !== 'GET') headers['X-CSRFToken'] = await fetchCsrfToken()
   if (body !== undefined) headers['Content-Type'] = 'application/json'

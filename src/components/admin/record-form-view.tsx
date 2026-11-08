@@ -1,3 +1,5 @@
+import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 import { useId, useState, type FormEvent, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { EthiopianDateInput } from '@/components/ethiopian-date-input'
@@ -71,9 +73,9 @@ type RecordFormViewProps = {
   children?: ReactNode
 }
 
-function displayValue(value: RecordFormValue | undefined) {
+function displayValue(value: RecordFormValue | undefined, t: TFunction) {
   if (value === null || value === undefined || value === '') return ''
-  if (typeof value === 'boolean') return value ? 'Yes' : 'No'
+  if (typeof value === 'boolean') return value ? t('states.yes') : t('states.no')
   return String(value)
 }
 
@@ -82,12 +84,13 @@ function conditionMatches(condition: RecordFormCondition | undefined, values: Re
 }
 
 export function RecordFormView({
-  modelName, title, subtitle, recordId, backHref, backLabel = 'Back', actionSlot,
+  modelName, title, subtitle, recordId, backHref, backLabel, actionSlot,
   toolbarAside, headerAside, ribbon, status, statusOptions, onStatusChange, sections = [], onFieldChange,
   headerFields = [], tabs = [], onSubmit, dirty, onDiscard, saving = false, saved = false,
-  submitLabel = 'Save', submittingLabel = 'Saving…', chatter, children,
+  submitLabel, submittingLabel, chatter, children,
 }: RecordFormViewProps) {
   const formId = useId()
+  const { t } = useTranslation()
   const editable = Boolean(onSubmit)
   const [activeTab, setActiveTab] = useState(tabs[0]?.id ?? '')
   const currentTab = tabs.some((tab) => tab.id === activeTab) ? activeTab : tabs[0]?.id
@@ -104,7 +107,7 @@ export function RecordFormView({
     const required = !readOnly && (conditionMatches(field.required, values) || Boolean(field.requiredWhen?.(values)))
     const shown = field.displayValue
       ?? (field.type === 'select' && value !== '' ? field.options?.find((option) => option.value === String(value))?.label : undefined)
-      ?? (field.type === 'date' && field.value ? formatDualDate(String(field.value)) : displayValue(field.value))
+      ?? (field.type === 'date' && field.value ? formatDualDate(String(field.value)) : displayValue(field.value, t))
     return (
       <div className={`o-field${field.fullWidth ? ' o-field--wide' : ''}${readOnly ? ' o-field--readonly' : ''}${required ? ' o-field--required' : ''}`} key={field.name}>
         <label className="o-field-label" htmlFor={field.render || readOnly ? undefined : fieldId}>{field.label}</label>
@@ -148,23 +151,23 @@ export function RecordFormView({
     <div className="o-form-view">
       <div className="o-control-panel">
         <div className="o-breadcrumb">
-          {backHref && <Link to={backHref} className="o-breadcrumb-parent">{backLabel}</Link>}
+          {backHref && <Link to={backHref} className="o-breadcrumb-parent">{backLabel ?? t('actions.back')}</Link>}
           {backHref && <span className="o-breadcrumb-sep" aria-hidden="true">/</span>}
-          <span className="o-breadcrumb-current">{title || 'New'}</span>
-          {dirty && <span className="o-dirty-dot" title="Unsaved changes" aria-label="Unsaved changes" />}
+          <span className="o-breadcrumb-current">{title || t('states.new')}</span>
+          {dirty && <span className="o-dirty-dot" title={t('states.unsavedChanges')} aria-label={t('states.unsavedChanges')} />}
         </div>
         <div className="o-cp-actions">
           {showSave && (
             <button type="submit" form={formId} disabled={saving} className="o-btn o-btn-primary">
-              {saving ? submittingLabel : submitLabel}
+              {saving ? (submittingLabel ?? t('actions.saving')) : (submitLabel ?? t('actions.save'))}
             </button>
           )}
           {showSave && onDiscard && (
-            <button type="button" onClick={onDiscard} disabled={saving} className="o-btn o-btn-secondary">Discard</button>
+            <button type="button" onClick={onDiscard} disabled={saving} className="o-btn o-btn-secondary">{t('actions.discard')}</button>
           )}
-          {saved && !dirty && !saving && <span className="o-saved-hint" role="status">✓ Saved</span>}
+          {saved && !dirty && !saving && <span className="o-saved-hint" role="status">{t('states.saved')}</span>}
           {toolbarAside}
-          {recordId !== undefined && <span className="o-record-id">{modelName} #{recordId}</span>}
+          {recordId !== undefined && <span className="o-record-id">{t('record.idLabel', { model: modelName, id: recordId })}</span>}
         </div>
       </div>
 
@@ -174,7 +177,7 @@ export function RecordFormView({
             <div className="o-form-statusbar">
               <div className="o-statusbar-buttons">{actionSlot}</div>
               {visibleStatuses.length > 0 && (
-                <nav className="o-statusbar-status" aria-label={`${modelName} status`}>
+                <nav className="o-statusbar-status" aria-label={t('record.status', { model: modelName })}>
                   {visibleStatuses.map((option) => (
                     <button
                       key={option.value}
@@ -198,7 +201,7 @@ export function RecordFormView({
 
             <div className="o-title">
               <span className="o-title-model">{modelName}</span>
-              <h1>{title || <span className="o-title-placeholder">New</span>}</h1>
+              <h1>{title || <span className="o-title-placeholder">{t('states.new')}</span>}</h1>
               {subtitle && <p>{subtitle}</p>}
             </div>
 
@@ -208,7 +211,7 @@ export function RecordFormView({
 
             {tabs.length > 0 && (
               <div className="o-notebook">
-                <div className="o-notebook-tabs" role="tablist" aria-label={`${modelName} details`}>
+                <div className="o-notebook-tabs" role="tablist" aria-label={t('record.details', { model: modelName })}>
                   {tabs.map((tab) => (
                     <button key={tab.id} id={`${formId}-${tab.id}-tab`} type="button" role="tab" aria-selected={currentTab === tab.id} aria-controls={`${formId}-${tab.id}-panel`} className={currentTab === tab.id ? 'is-active' : ''} onClick={() => setActiveTab(tab.id)}>
                       {tab.label}

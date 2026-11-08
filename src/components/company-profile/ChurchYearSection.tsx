@@ -1,8 +1,11 @@
 import { useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { formatEthiopian, formatGregorian, todayUtc, upcomingPeriods } from '@/lib/ethiopian-calendar'
 import { TibebBand } from './EthiopianCross'
 
 export function ChurchYearSection() {
+  const { t, i18n } = useTranslation('website')
+  const amharic = i18n.language !== 'en'
   const today = useMemo(() => todayUtc(), [])
   const periods = useMemo(() => upcomingPeriods(today, 6), [today])
 
@@ -12,14 +15,13 @@ export function ChurchYearSection() {
       <div className="section-heading">
         <div>
           <p className="eyebrow">
-            <span lang="am">የቤተ ክርስቲያን ዘመን</span> · The church year
+            <span lang="am">የቤተ ክርስቲያን ዘመን</span>{!amharic && <> · {t('churchYear.eyebrow')}</>}
           </p>
-          <h2 id="church-year-title">We plan around<br /><i>the feasts and the fasts.</i></h2>
+          <h2 id="church-year-title">{t('churchYear.title')}<br /><i>{t('churchYear.titleAccent')}</i></h2>
         </div>
         <p>
-          Church weddings (Teklil) are not held during the fasting seasons, and feast days fill
-          quickly. Today is <strong lang="am">{formatEthiopian(today, 'am')}</strong>{' '}
-          ({formatGregorian(today)}). Here is what is coming up.
+          {t('churchYear.bodyBefore')} <strong lang="am">{formatEthiopian(today, 'am')}</strong>{' '}
+          ({formatGregorian(today)}). {t('churchYear.bodyAfter')}
         </p>
       </div>
 
@@ -28,10 +30,10 @@ export function ChurchYearSection() {
           const sameDay = p.start.getTime() === p.end.getTime()
           return (
             <li key={`${p.key}-${p.start.toISOString()}`} className={`church-year-item church-year-item--${p.kind}`}>
-              <span className="church-year-kind">{p.kind === 'fast' ? 'Fast · ጾም' : 'Feast · በዓል'}</span>
+              <span className="church-year-kind">{p.kind === 'fast' ? t('churchYear.fast') : t('churchYear.feast')}</span>
               <h3>
                 <span lang="am">{p.am}</span>
-                <small>{p.name}</small>
+                {!amharic && <small>{p.name}</small>}
               </h3>
               <p className="church-year-dates">
                 {formatEthiopian(p.start)}
@@ -41,15 +43,16 @@ export function ChurchYearSection() {
                   {!sameDay && <> – {formatGregorian(p.end)}</>}
                 </small>
               </p>
-              <p className="church-year-note">{p.note}</p>
+              <p className="church-year-note">
+                {t(`churchYear.notes.${p.key as ChurchNoteKey}`, { defaultValue: p.note })}
+              </p>
             </li>
           )
         })}
       </ol>
-      <p className="church-year-footnote">
-        Wednesdays and Fridays are also fast days, except in the fifty days after Fasika. We confirm
-        every church date with your parish.
-      </p>
+      <p className="church-year-footnote">{t('churchYear.footnote')}</p>
     </section>
   )
 }
+
+type ChurchNoteKey = keyof typeof import('@/i18n/en/website').default.churchYear.notes

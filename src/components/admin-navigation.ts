@@ -7,44 +7,44 @@ import { can, type Profile } from '@/lib/use-profile'
 
 /** `module` is the access-table module (utils/rbac.py) a page belongs to; items the role can't open are hidden. */
 export const adminNavigationItems: SideNavItem[] = [
-  { menu: 'Dashboard', icon: DashboardSquare01Icon, route: '/dashboard', exact: true, module: 'dashboard' },
-  { menu: 'Leads', icon: UserGroupIcon, route: '/dashboard/leads', exact: true, module: 'leads' },
+  { menu: 'dashboard', icon: DashboardSquare01Icon, route: '/dashboard', exact: true, module: 'dashboard' },
+  { menu: 'leads', icon: UserGroupIcon, route: '/dashboard/leads', exact: true, module: 'leads' },
   {
-    menu: 'Finance',
+    menu: 'finance',
     icon: BitcoinEllipseFreeIcons,
     children: [
-      { menu: 'Invoices', icon: BitcoinEllipseFreeIcons, route: '/dashboard/invoices', module: 'invoices' },
-      { menu: 'Expenses', icon: Invoice01Icon, route: '/dashboard/expenses', module: 'expenses' },
+      { menu: 'invoices', icon: BitcoinEllipseFreeIcons, route: '/dashboard/invoices', module: 'invoices' },
+      { menu: 'expenses', icon: Invoice01Icon, route: '/dashboard/expenses', module: 'expenses' },
     ],
   },
-  { menu: 'Projects', icon: Task01Icon, route: '/dashboard/projects', module: 'projects' },
+  { menu: 'projects', icon: Task01Icon, route: '/dashboard/projects', module: 'projects' },
   {
-    menu: 'Catalog',
+    menu: 'catalog',
     icon: CatalogueIcon,
     children: [
-      { menu: 'Plans', icon: Book02Icon, route: '/dashboard/catalog/plans', module: 'catalog' },
-      { menu: 'Packages', icon: PackageIcon, route: '/dashboard/catalog/packages', module: 'catalog' },
-      { menu: 'Services', icon: ServiceIcon, route: '/dashboard/catalog/services', module: 'catalog' },
+      { menu: 'plans', icon: Book02Icon, route: '/dashboard/catalog/plans', module: 'catalog' },
+      { menu: 'packages', icon: PackageIcon, route: '/dashboard/catalog/packages', module: 'catalog' },
+      { menu: 'services', icon: ServiceIcon, route: '/dashboard/catalog/services', module: 'catalog' },
     ],
   },
   {
-    menu: 'Procurement',
+    menu: 'procurement',
     icon: MarketOrderIcon,
     children: [
-      { menu: 'Purchase orders', icon: MarketOrderIcon, route: '/dashboard/purchase-orders', module: 'purchase_orders' },
-      { menu: 'Vendors', icon: MealScanIcon, route: '/dashboard/vendors', module: 'vendors' },
+      { menu: 'purchaseOrders', icon: MarketOrderIcon, route: '/dashboard/purchase-orders', module: 'purchase_orders' },
+      { menu: 'vendors', icon: MealScanIcon, route: '/dashboard/vendors', module: 'vendors' },
     ],
   },
   {
-    menu: 'Crew',
+    menu: 'crew',
     icon: UserMultiple02Icon,
     children: [
-      { menu: 'Directory', icon: UserMultiple02Icon, route: '/dashboard/crew', module: 'crew' },
-      { menu: 'Event schedule', icon: Calendar03Icon, route: '/dashboard/crew-schedule', module: 'crew' },
-      { menu: 'Payroll', icon: Invoice01Icon, route: '/dashboard/payroll', module: 'payroll' },
+      { menu: 'directory', icon: UserMultiple02Icon, route: '/dashboard/crew', module: 'crew' },
+      { menu: 'eventSchedule', icon: Calendar03Icon, route: '/dashboard/crew-schedule', module: 'crew' },
+      { menu: 'payroll', icon: Invoice01Icon, route: '/dashboard/payroll', module: 'payroll' },
     ],
   },
-  { menu: 'Users', icon: UserSettings01Icon, route: '/dashboard/users', module: 'users' },
+  { menu: 'users', icon: UserSettings01Icon, route: '/dashboard/users', module: 'users' },
 ]
 
 /** The menu as this profile sees it: inaccessible items and empty groups removed. */

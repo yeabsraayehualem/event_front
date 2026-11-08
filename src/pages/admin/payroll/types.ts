@@ -1,3 +1,4 @@
+import { intlLocale } from '@/i18n'
 export type Bracket = { upper_limit: string | null; rate: string }
 
 export type PayrollRules = {
@@ -82,5 +83,5 @@ export type PayRun = PayRunListItem & {
 
 export function monthLabel(period: string) {
   const [year, month] = period.split('-').map(Number)
-  return new Intl.DateTimeFormat('en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(Date.UTC(year, month - 1, 1)))
+  return new Intl.DateTimeFormat(intlLocale(), { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(Date.UTC(year, month - 1, 1)))
 }

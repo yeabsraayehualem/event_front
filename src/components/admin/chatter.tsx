@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState, type KeyboardEvent } from 'react'
 import { apiBaseUrl } from '@/lib/api'
 import { fetchCsrfToken } from '@/lib/csrf'
 import { formatDualDate } from '@/lib/ethiopian-calendar'
+import { useTranslation } from 'react-i18next'
+import i18n, { intlLocale } from '@/i18n'
 
 export type ChatterModel = 'lead' | 'event' | 'project' | 'invoice' | 'plan' | 'package' | 'vendor' | 'purchaseorder' | 'expense' | 'employee' | 'user'
 
@@ -22,7 +24,7 @@ type ChatterProps = {
   refreshKey?: number
 }
 
-const avatarTones = ['#28513c', '#a64f42', '#8d6c32', '#3f6a7a', '#6b4f7a', '#5c6b3a']
+const avatarTones = ['#5b211e', '#a64f42', '#8d6c32', '#3f6a7a', '#6b4f7a', '#5c6b3a']
 
 function initials(name: string) {
   return name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase()).join('') || '?'
@@ -38,34 +40,37 @@ function dayLabel(date: Date) {
   const today = new Date()
   const yesterday = new Date(today)
   yesterday.setDate(today.getDate() - 1)
-  if (date.toDateString() === today.toDateString()) return 'Today'
-  if (date.toDateString() === yesterday.toDateString()) return 'Yesterday'
+  if (date.toDateString() === today.toDateString()) return i18n.t('chatter:today')
+  if (date.toDateString() === yesterday.toDateString()) return i18n.t('chatter:yesterday')
   const iso = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
   return formatDualDate(iso)
 }
 
 function relativeTime(date: Date) {
+  const relative = new Intl.RelativeTimeFormat(intlLocale(), { numeric: 'auto', style: 'short' })
   const seconds = Math.round((Date.now() - date.getTime()) / 1000)
-  if (seconds < 60) return 'just now'
+  if (seconds < 60) return relative.format(0, 'second')
   const minutes = Math.round(seconds / 60)
-  if (minutes < 60) return `${minutes} min ago`
+  if (minutes < 60) return relative.format(-minutes, 'minute')
   const hours = Math.round(minutes / 60)
-  if (hours < 24) return `${hours} h ago`
-  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  if (hours < 24) return relative.format(-hours, 'hour')
+  return date.toLocaleTimeString(intlLocale(), { hour: '2-digit', minute: '2-digit' })
 }
 
 function TrackingLine({ value }: { value: TrackingValue }) {
+  const { t } = useTranslation('chatter')
   return (
     <li className="o-chatter-tracking">
-      <span className={value.old_value ? 'o-chatter-old' : 'o-chatter-old is-empty'}>{value.old_value || 'None'}</span>
-      <span className="o-chatter-arrow" aria-label="changed to">→</span>
-      <span className={value.new_value ? 'o-chatter-new' : 'o-chatter-new is-empty'}>{value.new_value || 'None'}</span>
+      <span className={value.old_value ? 'o-chatter-old' : 'o-chatter-old is-empty'}>{value.old_value || t('none')}</span>
+      <span className="o-chatter-arrow" aria-label={t('changedTo')}>→</span>
+      <span className={value.new_value ? 'o-chatter-new' : 'o-chatter-new is-empty'}>{value.new_value || t('none')}</span>
       <span className="o-chatter-field">({value.field_label})</span>
     </li>
   )
 }
 
 export function Chatter({ model, recordId, refreshKey = 0 }: ChatterProps) {
+  const { t } = useTranslation('chatter')
   const [messages, setMessages] = useState<ChatterMessage[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -82,7 +87,7 @@ export function Chatter({ model, recordId, refreshKey = 0 }: ChatterProps) {
       const body: unknown = await response.json()
       if (!response.ok) {
         const detail = typeof body === 'object' && body !== null && 'detail' in body ? String(body.detail) : ''
-        throw new Error(detail || 'Could not load the activity history.')
+        throw new Error(detail || t('loadFailed'))
       }
       setMessages(body as ChatterMessage[])
     } catch (loadError) {
@@ -90,7 +95,7 @@ export function Chatter({ model, recordId, refreshKey = 0 }: ChatterProps) {
     } finally {
       if (!signal?.aborted) setLoading(false)
     }
-  }, [model, recordId])
+  }, [model, recordId, t])
 
   useEffect(() => {
     const controller = new AbortController()
@@ -112,12 +117,12 @@ export function Chatter({ model, recordId, refreshKey = 0 }: ChatterProps) {
         body: JSON.stringify({ body }),
       })
       const created: unknown = await response.json()
-      if (!response.ok) throw new Error('Could not log this note.')
+      if (!response.ok) throw new Error(t('postFailed'))
       setMessages((current) => [created as ChatterMessage, ...current])
       setDraft('')
       setComposerOpen(false)
     } catch (postError) {
-      setError(postError instanceof Error ? postError.message : 'Could not log this note.')
+      setError(postError instanceof Error ? postError.message : t('postFailed'))
     } finally {
       setPosting(false)
     }
@@ -141,7 +146,7 @@ export function Chatter({ model, recordId, refreshKey = 0 }: ChatterProps) {
   }
 
   return (
-    <aside className="o-chatter" aria-label="Activity and change log">
+    <aside className="o-chatter" aria-label={t('label')}>
       <div className="o-chatter-topbar">
         <button
           type="button"
@@ -149,30 +154,30 @@ export function Chatter({ model, recordId, refreshKey = 0 }: ChatterProps) {
           aria-expanded={composerOpen}
           onClick={() => setComposerOpen((open) => !open)}
         >
-          Log note
+          {t('logNote')}
         </button>
-        <span className="o-chatter-count">{messages.length} {messages.length === 1 ? 'entry' : 'entries'}</span>
-        <button type="button" className="o-chatter-refresh" onClick={() => void load()} aria-label="Refresh activity" title="Refresh">↻</button>
+        <span className="o-chatter-count">{t('entries', { count: messages.length })}</span>
+        <button type="button" className="o-chatter-refresh" onClick={() => void load()} aria-label={t('refresh')} title={t('refreshTitle')}>↻</button>
       </div>
 
       {composerOpen && (
         <div className="o-chatter-composer">
-          <span className="o-avatar" aria-hidden="true" style={{ background: '#28513c' }}>✎</span>
+          <span className="o-avatar" aria-hidden="true" style={{ background: '#5b211e' }}>✎</span>
           <div className="o-chatter-composer-body">
             <textarea
               autoFocus
               value={draft}
               onChange={(event) => setDraft(event.target.value)}
               onKeyDown={onComposerKeyDown}
-              placeholder="Log an internal note…"
-              aria-label="Internal note"
+              placeholder={t('placeholder')}
+              aria-label={t('noteLabel')}
               rows={3}
             />
             <div className="o-chatter-composer-actions">
               <button type="button" className="o-btn o-btn-primary" disabled={posting || !draft.trim()} onClick={() => void logNote()}>
-                {posting ? 'Logging…' : 'Log'}
+                {posting ? t('logging') : t('log')}
               </button>
-              <small>Ctrl + Enter to log · notes are internal only</small>
+              <small>{t('hint')}</small>
             </div>
           </div>
         </div>
@@ -182,14 +187,14 @@ export function Chatter({ model, recordId, refreshKey = 0 }: ChatterProps) {
 
       <div className="o-chatter-thread">
         {loading ? (
-          <p className="o-chatter-empty">Loading activity…</p>
+          <p className="o-chatter-empty">{t('loading')}</p>
         ) : groups.length === 0 ? (
-          <p className="o-chatter-empty">No activity yet. Changes and notes on this record will appear here.</p>
+          <p className="o-chatter-empty">{t('empty')}</p>
         ) : groups.map((group) => (
           <section key={group.label} className="o-chatter-day">
             <div className="o-chatter-separator"><span>{group.label}</span></div>
             {group.items.map((message) => {
-              const author = message.author?.name ?? 'System'
+              const author = message.author?.name ?? t('system')
               const created = new Date(message.created_at)
               return (
                 <article key={message.id} className={`o-chatter-message o-chatter-message--${message.kind}`}>
@@ -199,8 +204,8 @@ export function Chatter({ model, recordId, refreshKey = 0 }: ChatterProps) {
                   <div className="o-chatter-message-body">
                     <header>
                       <strong>{author}</strong>
-                      <time dateTime={message.created_at} title={created.toLocaleString()}>{relativeTime(created)}</time>
-                      {message.kind === 'note' && <span className="o-chatter-badge">Note</span>}
+                      <time dateTime={message.created_at} title={created.toLocaleString(intlLocale())}>{relativeTime(created)}</time>
+                      {message.kind === 'note' && <span className="o-chatter-badge">{t('note')}</span>}
                     </header>
                     {message.body && <p>{message.body}</p>}
                     {message.tracking_values.length > 0 && (

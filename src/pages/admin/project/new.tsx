@@ -1,4 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
+import { useTranslation } from 'react-i18next'
+import i18n from '@/i18n'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { adminNavigationItems } from '@/components/admin-navigation'
 import { SideNav } from '@/components/side-nav'
@@ -11,10 +13,9 @@ import type { EventOption } from '@/pages/admin/invoices/invoice-new'
 
 type User = { id: number; first_name: string; last_name: string }
 
-const fieldLabels = { name: 'Project name', event: 'Event', lead: 'Project lead', start_date: 'Start date', end_date: 'End date' }
 
 function fullName(user: User) {
-  return [user.first_name, user.last_name].filter(Boolean).join(' ') || `User #${user.id}`
+  return [user.first_name, user.last_name].filter(Boolean).join(' ') || i18n.t('projects:form.userFallback', { id: user.id })
 }
 
 function todayIso() {
@@ -24,6 +25,8 @@ function todayIso() {
 
 export function ProjectNew() {
   const navigate = useNavigate()
+  const { t } = useTranslation('projects')
+  const fieldLabels = { name: t('form.name'), event: t('form.event'), lead: t('form.lead'), start_date: t('form.startDate'), end_date: t('form.endDate') }
   const [searchParams] = useSearchParams()
   const [events, setEvents] = useState<EventOption[] | null>(null)
   const [users, setUsers] = useState<User[]>([])
@@ -40,15 +43,15 @@ export function ProjectNew() {
       .then(async ([eventsResponse, usersResponse]) => {
         const [eventsBody, usersBody] = await Promise.all([eventsResponse.json(), usersResponse.json()])
         if (eventsResponse.status === 401) { navigate('/login', { replace: true }); return }
-        if (!eventsResponse.ok) throw new Error(getErrorMessage(eventsBody, 'Could not load events.'))
-        if (!usersResponse.ok) throw new Error(getErrorMessage(usersBody, 'Could not load the team.'))
+        if (!eventsResponse.ok) throw new Error(getErrorMessage(eventsBody, t('form.loadEvents')))
+        if (!usersResponse.ok) throw new Error(getErrorMessage(usersBody, t('form.loadTeam')))
         const loadedEvents = eventsBody as EventOption[]
         setEvents(loadedEvents)
         setUsers(usersBody as User[])
         setDraft((current) => {
           const preselected = loadedEvents.find((item) => String(item.id) === current.event)
           return preselected
-            ? { ...current, name: current.name || `${preselected.name} preparation`, end_date: current.end_date || preselected.event_date }
+            ? { ...current, name: current.name || t('form.defaultName', { event: preselected.name }), end_date: current.end_date || preselected.event_date }
             : current
         })
       })
@@ -56,7 +59,7 @@ export function ProjectNew() {
         if (loadError instanceof Error && loadError.name !== 'AbortError') setError(loadError.message)
       })
     return () => controller.abort()
-  }, [navigate])
+  }, [navigate, t])
 
   const selectedEvent = events?.find((item) => String(item.id) === draft.event)
 
@@ -66,7 +69,7 @@ export function ProjectNew() {
       // Picking an event suggests a name and an end date on the event day, without overwriting edits.
       if (name === 'event') {
         const picked = events?.find((item) => String(item.id) === value)
-        if (picked && !current.name.trim()) next.name = `${picked.name} preparation`
+        if (picked && !current.name.trim()) next.name = t('form.defaultName', { event: picked.name })
         if (picked && !current.end_date) next.end_date = picked.event_date
       }
       return next
@@ -76,7 +79,7 @@ export function ProjectNew() {
   async function createProject(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (draft.end_date && draft.start_date && draft.end_date < draft.start_date) {
-      setError('The end date must be on or after the start date.')
+      setError(t('form.endBeforeStart'))
       return
     }
     setSaving(true)
@@ -97,17 +100,17 @@ export function ProjectNew() {
         }),
       })
       const body: unknown = await response.json()
-      if (!response.ok) throw new Error(getErrorMessage(body, 'Could not create this project.', fieldLabels))
+      if (!response.ok) throw new Error(getErrorMessage(body, t('form.createFailed'), fieldLabels))
       navigate(`/dashboard/projects/${(body as { id: number }).id}`, { replace: true })
     } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : 'Could not create this project.')
+      setError(saveError instanceof Error ? saveError.message : t('form.createFailed'))
       setSaving(false)
     }
   }
 
   return (
     <div className="bahran-dashboard flex min-h-screen">
-      <SideNav items={adminNavigationItems} title="Bahran Events" />
+      <SideNav items={adminNavigationItems} title="Hadafe Nefs" />
       <main className="bahran-dashboard-main min-w-0 flex-1 px-5 py-8 sm:px-8 lg:px-10">
         <div className="mx-auto max-w-7xl">
           {error && <p className="dashboard-message dashboard-message--error" role="alert">{error}</p>}
@@ -115,35 +118,35 @@ export function ProjectNew() {
 
           {events && (
             <RecordFormView
-              modelName="Project"
+              modelName={t('model')}
               title={draft.name}
-              subtitle={selectedEvent ? `${selectedEvent.customer} · ${formatDualDate(selectedEvent.event_date)}` : 'Plan the work for an event.'}
+              subtitle={selectedEvent ? `${selectedEvent.customer} · ${formatDualDate(selectedEvent.event_date)}` : t('form.subtitle')}
               backHref="/dashboard/projects"
-              backLabel="Projects"
+              backLabel={t('form.backProjects')}
               headerFields={[
-                { name: 'name', label: 'Project name', value: draft.name, required: true, placeholder: 'e.g. Selam wedding preparation', fullWidth: true },
+                { name: 'name', label: t('form.name'), value: draft.name, required: true, placeholder: t('form.namePlaceholder'), fullWidth: true },
                 {
-                  name: 'event', label: 'Event', type: 'select', value: draft.event, required: true,
-                  helpText: events.length ? undefined : 'No events yet — convert a won lead into an event first.',
-                  options: [{ value: '', label: 'Choose an event' }, ...events.map((item) => ({ value: String(item.id), label: item.name }))],
+                  name: 'event', label: t('form.event'), type: 'select', value: draft.event, required: true,
+                  helpText: events.length ? undefined : t('form.noEvents'),
+                  options: [{ value: '', label: t('form.chooseEvent') }, ...events.map((item) => ({ value: String(item.id), label: item.name }))],
                 },
-                { name: 'start_date', label: 'Start date', type: 'date', value: draft.start_date, required: true },
+                { name: 'start_date', label: t('form.startDate'), type: 'date', value: draft.start_date, required: true },
                 {
-                  name: 'lead', label: 'Project lead', type: 'select', value: draft.lead, required: true,
-                  options: [{ value: '', label: 'Choose a person' }, ...users.map((user) => ({ value: String(user.id), label: fullName(user) }))],
+                  name: 'lead', label: t('form.lead'), type: 'select', value: draft.lead, required: true,
+                  options: [{ value: '', label: t('form.choosePerson') }, ...users.map((user) => ({ value: String(user.id), label: fullName(user) }))],
                 },
-                { name: 'end_date', label: 'End date', type: 'date', value: draft.end_date, required: true, helpText: selectedEvent ? 'Defaults to the event day.' : undefined },
+                { name: 'end_date', label: t('form.endDate'), type: 'date', value: draft.end_date, required: true, helpText: selectedEvent ? t('form.endHelp') : undefined },
               ]}
               tabs={[{
                 id: 'tasks',
-                label: 'Tasks',
-                content: <p className="o-empty-page">Save the project to start adding tasks.</p>,
+                label: t('form.tasksTab'),
+                content: <p className="o-empty-page">{t('form.saveFirst')}</p>,
               }]}
               onFieldChange={update}
               onSubmit={(event) => void createProject(event)}
               onDiscard={() => navigate('/dashboard/projects')}
               saving={saving}
-              submittingLabel="Creating…"
+              submittingLabel={t('form.creating')}
             />
           )}
         </div>

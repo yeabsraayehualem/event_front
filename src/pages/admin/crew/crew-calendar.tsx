@@ -1,11 +1,17 @@
 import { ETHIOPIAN_MONTHS, addDays, parseIsoDate, toEthiopian, todayUtc } from '@/lib/ethiopian-calendar'
+import { useTranslation } from 'react-i18next'
+import i18n, { intlLocale } from '@/i18n'
 import { calendarRange, isoOf, monthStart } from './calendar-range'
 import type { HROptions, Shift } from './types'
 
 type CalendarEvent = HROptions['events'][number]
 type Crew = { count: number; names: string[] }
 
-const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+/** Short weekday names, Monday first, in the current language (5 Jan 2026 is a Monday). */
+function weekdays() {
+  const format = new Intl.DateTimeFormat(intlLocale(), { weekday: 'short', timeZone: 'UTC' })
+  return Array.from({ length: 7 }, (_, i) => format.format(new Date(Date.UTC(2026, 0, 5 + i))))
+}
 const BOOKED = new Set(['scheduled', 'confirmed', 'completed'])
 
 function crewByEvent(shifts: Shift[]) {
@@ -20,7 +26,7 @@ function crewByEvent(shifts: Shift[]) {
 }
 
 function crewLabel(crew: Crew | undefined) {
-  if (!crew?.count) return 'No crew yet'
+  if (!crew?.count) return i18n.t('crew:calendar.noCrew')
   const shown = crew.names.slice(0, 2).map((name) => name.split(' ')[0]).join(', ')
   return crew.count > 2 ? `${shown} +${crew.count - 2}` : shown
 }
@@ -37,6 +43,7 @@ type CrewCalendarProps = {
 
 /** Month view of events with the crew booked on each. Collapses to an agenda list on narrow screens. */
 export function CrewCalendar({ month, onMonthChange, events, shifts, selectedEventId, onSelect, loading = false }: CrewCalendarProps) {
+  const { t } = useTranslation('crew')
   const [start, end] = calendarRange(month)
   const today = isoOf(todayUtc())
   const crew = crewByEvent(shifts)
@@ -54,9 +61,11 @@ export function CrewCalendar({ month, onMonthChange, events, shifts, selectedEve
   // The Ethiopian months this Gregorian month overlaps, e.g. "Tikimt – Hidar 2019".
   const etFirst = toEthiopian(monthStart(month))
   const etLast = toEthiopian(new Date(Date.UTC(month.getUTCFullYear(), month.getUTCMonth() + 1, 0)))
+  const lang = i18n.language === 'en' ? 'en' : 'am'
+  const WEEKDAYS = weekdays()
   const etLabel = etFirst.month === etLast.month
-    ? `${ETHIOPIAN_MONTHS[etFirst.month - 1].en} ${etFirst.year}`
-    : `${ETHIOPIAN_MONTHS[etFirst.month - 1].en} – ${ETHIOPIAN_MONTHS[etLast.month - 1].en} ${etLast.year}`
+    ? `${ETHIOPIAN_MONTHS[etFirst.month - 1][lang]} ${etFirst.year}`
+    : `${ETHIOPIAN_MONTHS[etFirst.month - 1][lang]} – ${ETHIOPIAN_MONTHS[etLast.month - 1][lang]} ${etLast.year}`
   const shift = (months: number) => onMonthChange(new Date(Date.UTC(month.getUTCFullYear(), month.getUTCMonth() + months, 1)))
 
   function eventChip(event: CalendarEvent) {
@@ -68,7 +77,7 @@ export function CrewCalendar({ month, onMonthChange, events, shifts, selectedEve
         type="button"
         className={`crew-cal-event${selected ? ' is-selected' : ''}${people?.count ? '' : ' is-unstaffed'}`}
         aria-pressed={selected}
-        title={`${event.name}\n${people?.count ? people.names.join(', ') : 'No crew booked yet'}`}
+        title={`${event.name}\n${people?.count ? people.names.join(', ') : t('calendar.noCrewBooked')}`}
         onClick={() => onSelect(event.id)}
       >
         <strong>{event.name}</strong>
@@ -78,20 +87,20 @@ export function CrewCalendar({ month, onMonthChange, events, shifts, selectedEve
   }
 
   return (
-    <section className={`dash-card crew-cal${loading ? ' is-refreshing' : ''}`} aria-label="Events calendar">
+    <section className={`dash-card crew-cal${loading ? ' is-refreshing' : ''}`} aria-label={t('calendar.label')}>
       <div className="crew-cal-head">
         <div>
-          <h2>{new Intl.DateTimeFormat('en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(month)}</h2>
-          <span className="cat-muted">{etLabel} E.C. · {monthEvents.length} {monthEvents.length === 1 ? 'event' : 'events'}{unstaffed ? ` · ${unstaffed} without crew` : ''}</span>
+          <h2>{new Intl.DateTimeFormat(intlLocale(), { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(month)}</h2>
+          <span className="cat-muted">{etLabel} {t('datePicker.era', { ns: 'common' })} · {t('calendar.events', { count: monthEvents.length })}{unstaffed ? ` · ${t('calendar.withoutCrew', { count: unstaffed })}` : ''}</span>
         </div>
         <div className="crew-cal-nav">
-          <button type="button" className="o-btn o-btn-secondary o-btn-sm" onClick={() => shift(-1)} aria-label="Previous month">‹</button>
-          <button type="button" className="o-btn o-btn-secondary o-btn-sm" onClick={() => onMonthChange(monthStart(todayUtc()))}>Today</button>
-          <button type="button" className="o-btn o-btn-secondary o-btn-sm" onClick={() => shift(1)} aria-label="Next month">›</button>
+          <button type="button" className="o-btn o-btn-secondary o-btn-sm" onClick={() => shift(-1)} aria-label={t('calendar.previous')}>‹</button>
+          <button type="button" className="o-btn o-btn-secondary o-btn-sm" onClick={() => onMonthChange(monthStart(todayUtc()))}>{t('calendar.today')}</button>
+          <button type="button" className="o-btn o-btn-secondary o-btn-sm" onClick={() => shift(1)} aria-label={t('calendar.next')}>›</button>
         </div>
       </div>
 
-      <div className="crew-cal-grid" role="grid" aria-label="Month">
+      <div className="crew-cal-grid" role="grid" aria-label={t('calendar.month')}>
         {WEEKDAYS.map((day) => <div key={day} className="crew-cal-weekday" role="columnheader">{day}</div>)}
         {days.map((day) => {
           const iso = isoOf(day)
@@ -101,7 +110,7 @@ export function CrewCalendar({ month, onMonthChange, events, shifts, selectedEve
             <div key={iso} role="gridcell" className={`crew-cal-day${inMonth(day) ? '' : ' is-outside'}${iso === today ? ' is-today' : ''}`}>
               <div className="crew-cal-date">
                 <span>{day.getUTCDate()}</span>
-                <small>{et.day === 1 ? `${ETHIOPIAN_MONTHS[et.month - 1].en.slice(0, 3)} 1` : et.day}</small>
+                <small>{et.day === 1 ? `${lang === 'en' ? ETHIOPIAN_MONTHS[et.month - 1].en.slice(0, 3) : ETHIOPIAN_MONTHS[et.month - 1].am} 1` : et.day}</small>
               </div>
               {dayEvents.map(eventChip)}
             </div>
@@ -118,13 +127,13 @@ export function CrewCalendar({ month, onMonthChange, events, shifts, selectedEve
               <div className="crew-cal-agenda-date">
                 <strong>{date.getUTCDate()}</strong>
                 <span>{WEEKDAYS[(date.getUTCDay() + 6) % 7]}</span>
-                <small>{ETHIOPIAN_MONTHS[et.month - 1].en.slice(0, 3)} {et.day}</small>
+                <small>{lang === 'en' ? ETHIOPIAN_MONTHS[et.month - 1].en.slice(0, 3) : ETHIOPIAN_MONTHS[et.month - 1].am} {et.day}</small>
               </div>
               {eventChip(event)}
             </li>
           )
         })}
-        {monthEvents.length === 0 && <li className="dash-empty">No events this month.</li>}
+        {monthEvents.length === 0 && <li className="dash-empty">{t('calendar.noEvents')}</li>}
       </ul>
     </section>
   )

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { AdminShell } from '@/components/admin/admin-shell'
 import { apiRequest } from '@/lib/api-request'
 import { canManageCatalog, useProfile } from '@/lib/use-profile'
@@ -9,6 +10,7 @@ type Row = { key: string; id?: number; name: string; description: string; packag
 const rowFrom = (content: CatalogContent): Row => ({ key: String(content.id), ...content })
 
 export function CatalogServicesPage() {
+  const { t } = useTranslation('catalog')
   const editable = canManageCatalog(useProfile())
   const [saved, setSaved] = useState<Record<string, Row>>({})
   const [rows, setRows] = useState<Row[] | null>(null)
@@ -19,7 +21,7 @@ export function CatalogServicesPage() {
 
   useEffect(() => {
     const controller = new AbortController()
-    apiRequest<CatalogContent[]>('/event/catalog/contents/', { signal: controller.signal, fallback: 'Could not load services.' })
+    apiRequest<CatalogContent[]>('/event/catalog/contents/', { signal: controller.signal, fallback: t('services.loadFailed') })
       .then((loaded) => {
         const loadedRows = loaded.map(rowFrom)
         setRows(loadedRows)
@@ -34,7 +36,7 @@ export function CatalogServicesPage() {
 
   async function saveRow(row: Row) {
     if (!row.name.trim()) {
-      setError('Give the service a name.')
+      setError(t('services.needName'))
       return
     }
     setSavingKey(row.key)
@@ -43,14 +45,14 @@ export function CatalogServicesPage() {
     try {
       const body = { name: row.name.trim(), description: row.description.trim() }
       const result = await apiRequest<CatalogContent>(row.id ? `/event/catalog/contents/${row.id}/` : '/event/catalog/contents/', {
-        method: row.id ? 'PATCH' : 'POST', body, fallback: 'Could not save this service.',
+        method: row.id ? 'PATCH' : 'POST', body, fallback: t('services.saveFailed'),
       })
       const next = rowFrom(result)
       setRows((current) => current?.map((item) => item.key === row.key ? next : item) ?? current)
       setSaved((current) => ({ ...current, [next.key]: next }))
       setNotice(`“${result.name}” saved.`)
     } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : 'Could not save this service.')
+      setError(saveError instanceof Error ? saveError.message : t('services.saveFailed'))
     } finally {
       setSavingKey(null)
     }
@@ -64,13 +66,13 @@ export function CatalogServicesPage() {
       <div className="dash">
         <div className="dash-header">
           <div>
-            <p className="dash-eyebrow">Catalog</p>
-            <h1 className="dash-title">Services</h1>
+            <p className="dash-eyebrow">{t('eyebrow')}</p>
+            <h1 className="dash-title">{t('services.title')}</h1>
           </div>
         </div>
         <div className="cat-toolbar">
-          <input type="search" className="cat-search" placeholder="Search services…" aria-label="Search services" value={query} onChange={(event) => setQuery(event.target.value)} />
-          <span className="cat-muted">The building blocks of packages and invoice lines.</span>
+          <input type="search" className="cat-search" placeholder={t('services.searchPlaceholder')} aria-label={t('services.searchLabel')} value={query} onChange={(event) => setQuery(event.target.value)} />
+          <span className="cat-muted">{t('services.lede')}</span>
         </div>
 
         {error && <p className="dashboard-message dashboard-message--error" role="alert">{error}</p>}
@@ -81,7 +83,7 @@ export function CatalogServicesPage() {
           <section className="o-form-view">
             <div className="o-list-wrap cat-services">
               <table className="o-list cat-list">
-                <thead><tr><th scope="col">Service</th><th scope="col">Description</th><th scope="col" className="o-num">Packages</th><th scope="col" className="o-list-actions"><span className="sr-only">Actions</span></th></tr></thead>
+                <thead><tr><th scope="col">{t('services.service')}</th><th scope="col">{t('services.description')}</th><th scope="col" className="o-num">{t('services.packages')}</th><th scope="col" className="o-list-actions"><span className="sr-only">{t('services.actions')}</span></th></tr></thead>
                 <tbody>
                   {shown.map((row) => {
                     const dirty = isDirty(row)
@@ -89,22 +91,22 @@ export function CatalogServicesPage() {
                       <tr key={row.key} className={!row.id ? 'is-new' : dirty ? 'is-dirty' : ''}>
                         <td>
                           {editable
-                            ? <input className="o-input" aria-label="Service name" value={row.name} placeholder="e.g. Catering" onChange={(event) => update(row.key, { name: event.target.value })} onKeyDown={(event) => { if (event.key === 'Enter' && dirty) void saveRow(row) }} />
+                            ? <input className="o-input" aria-label={t('services.nameLabel')} value={row.name} placeholder={t('services.namePlaceholder')} onChange={(event) => update(row.key, { name: event.target.value })} onKeyDown={(event) => { if (event.key === 'Enter' && dirty) void saveRow(row) }} />
                             : <strong>{row.name}</strong>}
                         </td>
                         <td>
                           {editable
-                            ? <input className="o-input" aria-label={`Description of ${row.name || 'service'}`} value={row.description} placeholder="Optional" onChange={(event) => update(row.key, { description: event.target.value })} onKeyDown={(event) => { if (event.key === 'Enter' && dirty) void saveRow(row) }} />
+                            ? <input className="o-input" aria-label={t('services.descriptionOf', { name: row.name || t('services.serviceFallback') })} value={row.description} placeholder={t('services.optional')} onChange={(event) => update(row.key, { description: event.target.value })} onKeyDown={(event) => { if (event.key === 'Enter' && dirty) void saveRow(row) }} />
                             : <span className="o-muted">{row.description || '—'}</span>}
                         </td>
                         <td className="o-num o-muted">{row.package_count}</td>
                         <td className="o-list-actions">
                           {editable && dirty && <>
-                            <button type="button" className="o-btn o-btn-primary o-btn-sm" disabled={savingKey === row.key} onClick={() => void saveRow(row)}>{savingKey === row.key ? 'Saving…' : 'Save'}</button>
+                            <button type="button" className="o-btn o-btn-primary o-btn-sm" disabled={savingKey === row.key} onClick={() => void saveRow(row)}>{savingKey === row.key ? t('services.saving') : t('services.save')}</button>
                             <button
                               type="button"
                               className="o-btn o-btn-link o-btn-sm"
-                              aria-label={row.id ? `Discard changes to ${row.name}` : 'Cancel new service'}
+                              aria-label={row.id ? t('services.discardChanges', { name: row.name }) : t('services.cancelNew')}
                               onClick={() => row.id
                                 ? update(row.key, { name: saved[row.key].name, description: saved[row.key].description })
                                 : setRows((current) => current?.filter((item) => item.key !== row.key) ?? current)}
@@ -114,13 +116,13 @@ export function CatalogServicesPage() {
                       </tr>
                     )
                   })}
-                  {shown.length === 0 && <tr><td colSpan={4} className="o-list-empty">{rows.length ? 'No services match your search.' : 'No services yet.'}</td></tr>}
+                  {shown.length === 0 && <tr><td colSpan={4} className="o-list-empty">{rows.length ? t('services.noMatch') : t('services.empty')}</td></tr>}
                 </tbody>
               </table>
             </div>
             {editable && (
               <button type="button" className="o-list-add" onClick={() => setRows((current) => [...(current ?? []), { key: `new-${Date.now()}`, name: '', description: '', package_count: 0 }])}>
-                Add a line
+                {t('addLine')}
               </button>
             )}
           </section>

@@ -1,0 +1,25 @@
+const nav = {
+  mainNavigation: 'Main navigation',
+  expand: 'Expand {{item}}',
+  collapse: 'Collapse {{item}}',
+  dashboard: 'Dashboard',
+  leads: 'Leads',
+  finance: 'Finance',
+  invoices: 'Invoices',
+  expenses: 'Expenses',
+  projects: 'Projects',
+  catalog: 'Catalog',
+  plans: 'Plans',
+  packages: 'Packages',
+  services: 'Services',
+  procurement: 'Procurement',
+  purchaseOrders: 'Purchase orders',
+  vendors: 'Vendors',
+  crew: 'Crew',
+  directory: 'Directory',
+  eventSchedule: 'Event schedule',
+  payroll: 'Payroll',
+  users: 'Users',
+}
+
+export default nav

@@ -1,3 +1,4 @@
+import i18n, { intlLocale } from '@/i18n'
 import type { Choice } from '../procurement/types'
 
 export type HROptions = {
@@ -86,11 +87,11 @@ export type Shift = {
 }
 
 export function rateLabel(basis: string, rate: string | number) {
-  const amount = new Intl.NumberFormat('en-ET', { style: 'currency', currency: 'ETB', maximumFractionDigits: 0 }).format(Number(rate))
-  return basis === 'monthly' ? `${amount}/month` : basis === 'daily' ? `${amount}/day` : `${amount}/event`
+  const amount = new Intl.NumberFormat(intlLocale(), { style: 'currency', currency: 'ETB', maximumFractionDigits: 0 }).format(Number(rate))
+  return i18n.t(basis === 'monthly' ? 'crew:perMonth' : basis === 'daily' ? 'crew:perDay' : 'crew:perEvent', { amount })
 }
 
 export function timeRange(start: string, end: string) {
-  const format = (value: string) => new Date(value).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+  const format = (value: string) => new Date(value).toLocaleTimeString(intlLocale(), { hour: '2-digit', minute: '2-digit' })
   return `${format(start)}–${format(end)}`
 }

@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
+import { useTranslation } from 'react-i18next'
+import i18n from '@/i18n'
 import { AccessLink } from '@/components/admin/access-link'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { AdminShell } from '@/components/admin/admin-shell'
@@ -8,7 +10,7 @@ import { EthiopianDateInput } from '@/components/ethiopian-date-input'
 import { apiRequest } from '@/lib/api-request'
 import { formatDualDate } from '@/lib/ethiopian-calendar'
 import {
-  ORDER_STATUSES, formatMoney, joinDateTime, splitDateTime,
+  orderStatuses, formatMoney, joinDateTime, splitDateTime,
   type BudgetSummary, type EventProcurement, type ProcurementOptions, type PurchaseOrder, type TaxProfile,
 } from './types'
 
@@ -25,7 +27,6 @@ type Draft = {
   schedule: EditPayment[]
 }
 
-const fieldLabels = { vendor: 'Vendor', event: 'Event', lines: 'Lines', payment_schedule: 'Payment schedule', delivery_at: 'Delivery time' }
 const newKey = () => `new-${Date.now()}-${Math.random()}`
 const round = (value: number) => Math.round(value * 100) / 100
 
@@ -73,19 +74,20 @@ function signature(draft: Draft) {
 }
 
 function validate(draft: Draft, total: number) {
-  if (!draft.vendor) return 'Choose a vendor.'
-  if (!draft.event) return 'Choose the event this order is for.'
-  if (!draft.lines.length) return 'Add at least one line.'
+  if (!draft.vendor) return i18n.t('procurement:orderForm.chooseVendorFirst')
+  if (!draft.event) return i18n.t('procurement:orderForm.chooseEventFirst')
+  if (!draft.lines.length) return i18n.t('procurement:orderForm.needLine')
   if (draft.lines.some((line) => !line.description.trim() || !(Number(line.quantity) > 0) || line.unitPrice === '' || Number(line.unitPrice) < 0)) {
-    return 'Every line needs a description, a quantity above zero and a price.'
+    return i18n.t('procurement:orderForm.lineInvalid')
   }
-  if (draft.schedule.some((item) => !item.label.trim() || !(Number(item.amount) > 0))) return 'Every scheduled payment needs a label and an amount.'
+  if (draft.schedule.some((item) => !item.label.trim() || !(Number(item.amount) > 0))) return i18n.t('procurement:orderForm.scheduleInvalid')
   const scheduled = round(draft.schedule.reduce((sum, item) => sum + Number(item.amount || 0), 0))
-  if (draft.schedule.length && scheduled !== round(total)) return `The payment schedule adds up to ${formatMoney(scheduled)} but the order total is ${formatMoney(total)}.`
+  if (draft.schedule.length && scheduled !== round(total)) return i18n.t('procurement:orderForm.scheduleMismatch', { scheduled: formatMoney(scheduled), total: formatMoney(total) })
   return ''
 }
 
 export function PurchaseOrderFormPage() {
+  const { t } = useTranslation('procurement')
   const { id } = useParams<{ id: string }>()
   const isNew = !id
   const [searchParams] = useSearchParams()
@@ -109,8 +111,8 @@ export function PurchaseOrderFormPage() {
   const load = useCallback(async (signal?: AbortSignal) => {
     try {
       const [loadedOptions, loadedOrder] = await Promise.all([
-        apiRequest<ProcurementOptions>('/procurement/options/', { signal, fallback: 'Could not load purchase order options.' }),
-        isNew ? Promise.resolve(null) : apiRequest<PurchaseOrder>(`/procurement/purchase-orders/${id}/`, { signal, fallback: 'Could not load this purchase order.' }),
+        apiRequest<ProcurementOptions>('/procurement/options/', { signal, fallback: t('orderForm.loadOptions') }),
+        isNew ? Promise.resolve(null) : apiRequest<PurchaseOrder>(`/procurement/purchase-orders/${id}/`, { signal, fallback: t('orderForm.loadFailed') }),
       ])
       setOptions(loadedOptions)
       if (loadedOrder) {
@@ -136,7 +138,7 @@ export function PurchaseOrderFormPage() {
   useEffect(() => {
     if (!eventId) return
     const controller = new AbortController()
-    apiRequest<EventProcurement>(`/procurement/events/${eventId}/`, { signal: controller.signal, fallback: 'Could not load the event budget.' })
+    apiRequest<EventProcurement>(`/procurement/events/${eventId}/`, { signal: controller.signal, fallback: t('orderForm.loadBudget') })
       .then((summary) => { setEventSummary(summary); setBudgetInput(summary.budget ?? '') })
       .catch(() => undefined)
     return () => controller.abort()
@@ -171,7 +173,7 @@ export function PurchaseOrderFormPage() {
         payment_schedule: draft.schedule.map((item) => ({ label: item.label.trim(), amount: item.amount, due_date: item.dueDate || null })),
       }
       const result = await apiRequest<PurchaseOrder>(isNew ? '/procurement/purchase-orders/' : `/procurement/purchase-orders/${id}/`, {
-        method: isNew ? 'POST' : 'PATCH', body, fallback: 'Could not save this purchase order.', labels: fieldLabels,
+        method: isNew ? 'POST' : 'PATCH', body, fallback: t('orderForm.saveFailed'), labels: { vendor: t('orderForm.vendor'), event: t('orderForm.event'), lines: t('orderForm.lines'), payment_schedule: t('orderForm.paymentSchedule'), delivery_at: t('orderForm.deliveryTime') },
       })
       if (isNew) {
         navigate(`/dashboard/purchase-orders/${result.id}`, { replace: true })
@@ -182,7 +184,7 @@ export function PurchaseOrderFormPage() {
       setSaved(true)
       setChatterKey((key) => key + 1)
     } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : 'Could not save this purchase order.')
+      setError(saveError instanceof Error ? saveError.message : t('orderForm.saveFailed'))
     } finally {
       setSaving(false)
     }
@@ -192,7 +194,7 @@ export function PurchaseOrderFormPage() {
     if (!order) return
     const body: Record<string, unknown> = { action }
     if (action === 'reject' || action === 'cancel') {
-      const reason = window.prompt(action === 'reject' ? 'What should be changed before this is approved?' : 'Why is this order being cancelled?')
+      const reason = window.prompt(action === 'reject' ? t('orderForm.rejectPrompt') : t('orderForm.cancelPrompt'))
       if (!reason?.trim()) return
       body.reason = reason.trim()
     }
@@ -201,7 +203,7 @@ export function PurchaseOrderFormPage() {
       if (budget.budget !== null) {
         const overBy = Number(budget.committed) + Number(order.total) - Number(budget.budget)
         if (overBy > 0) {
-          if (!window.confirm(`Approving puts ${order.event_name} ${formatMoney(overBy)} over its cost budget of ${formatMoney(budget.budget)}. Approve anyway?`)) return
+          if (!window.confirm(t('orderForm.overBudgetConfirm', { event: order.event_name, over: formatMoney(overBy), budget: formatMoney(budget.budget) }))) return
           body.confirm_over_budget = true
         }
       }
@@ -210,13 +212,13 @@ export function PurchaseOrderFormPage() {
     setError('')
     setNotice('')
     try {
-      const result = await apiRequest<PurchaseOrder>(`/procurement/purchase-orders/${order.id}/transition/`, { method: 'POST', body, fallback: 'Could not update this order.' })
+      const result = await apiRequest<PurchaseOrder>(`/procurement/purchase-orders/${order.id}/transition/`, { method: 'POST', body, fallback: t('orderForm.updateFailed') })
       setOrder(result)
       setDraft(draftFrom(result))
-      setNotice({ submit: 'Submitted for approval.', approve: 'Approved and committed to the event budget.', reject: 'Sent back to draft.', receive: 'Marked as received.', cancel: 'Order cancelled.' }[action])
+      setNotice(t(`orderForm.notices.${action}`))
       setChatterKey((key) => key + 1)
     } catch (actionError) {
-      setError(actionError instanceof Error ? actionError.message : 'Could not update this order.')
+      setError(actionError instanceof Error ? actionError.message : t('orderForm.updateFailed'))
     } finally {
       setBusy(false)
     }
@@ -227,14 +229,14 @@ export function PurchaseOrderFormPage() {
     setError('')
     try {
       const result = await apiRequest<EventProcurement>(`/procurement/events/${eventSummary.event_id}/`, {
-        method: 'PATCH', body: { cost_budget: budgetInput.trim() || null }, fallback: 'Could not save the budget.', labels: { cost_budget: 'Budget' },
+        method: 'PATCH', body: { cost_budget: budgetInput.trim() || null }, fallback: t('orderForm.budgetFailed'), labels: { cost_budget: t('orderForm.budget') },
       })
       setEventSummary(result)
       setBudgetInput(result.budget ?? '')
       if (order) setOrder({ ...order, budget: result as BudgetSummary })
-      setNotice('Event budget saved.')
+      setNotice(t('orderForm.budgetSaved'))
     } catch (budgetError) {
-      setError(budgetError instanceof Error ? budgetError.message : 'Could not save the budget.')
+      setError(budgetError instanceof Error ? budgetError.message : t('orderForm.budgetFailed'))
     }
   }
 
@@ -255,32 +257,32 @@ export function PurchaseOrderFormPage() {
       <div className="o-list-wrap">
         <table className="o-list proc-lines">
           <thead><tr>
-            <th scope="col">Type</th><th scope="col">Description</th><th scope="col" className="o-num">Qty</th>
-            <th scope="col" className="o-num">Unit price</th><th scope="col">Taxes</th><th scope="col" className="o-num">Total</th>
-            {editable && <th scope="col" className="o-list-actions"><span className="sr-only">Actions</span></th>}
+            <th scope="col">{t('orderForm.type')}</th><th scope="col">{t('orderForm.description')}</th><th scope="col" className="o-num">{t('orderForm.qty')}</th>
+            <th scope="col" className="o-num">{t('orderForm.unitPrice')}</th><th scope="col">{t('orderForm.taxes')}</th><th scope="col" className="o-num">{t('orderForm.total')}</th>
+            {editable && <th scope="col" className="o-list-actions"><span className="sr-only">{t('orderForm.actions')}</span></th>}
           </tr></thead>
           <tbody>
             {draft.lines.map((line, index) => (
               <tr key={line.key}>
                 <td>
                   {editable ? (
-                    <select className="o-input" aria-label="Line type" value={line.kind} onChange={(event) => updateLine(line.key, { kind: event.target.value })}>
+                    <select className="o-input" aria-label={t('orderForm.lineType')} value={line.kind} onChange={(event) => updateLine(line.key, { kind: event.target.value })}>
                       {options.line_kinds.map((kind) => <option key={kind.value} value={kind.value}>{kind.label}</option>)}
                     </select>
                   ) : <span className="o-tag proc-tag">{kindLabel(line.kind)}</span>}
                 </td>
-                <td>{editable ? <input className="o-input" aria-label="Description" placeholder="e.g. Buffet dinner for 200 guests" value={line.description} onChange={(event) => updateLine(line.key, { description: event.target.value })} /> : line.description}</td>
-                <td className="o-num">{editable ? <input className="o-input o-num" aria-label="Quantity" type="number" min="0.01" step="0.01" value={line.quantity} onChange={(event) => updateLine(line.key, { quantity: event.target.value })} /> : line.quantity}</td>
-                <td className="o-num">{editable ? <input className="o-input o-num" aria-label="Unit price" type="number" min="0" step="0.01" value={line.unitPrice} onChange={(event) => updateLine(line.key, { unitPrice: event.target.value })} /> : formatMoney(line.unitPrice)}</td>
+                <td>{editable ? <input className="o-input" aria-label={t('orderForm.description')} placeholder={t('orderForm.descriptionPlaceholder')} value={line.description} onChange={(event) => updateLine(line.key, { description: event.target.value })} /> : line.description}</td>
+                <td className="o-num">{editable ? <input className="o-input o-num" aria-label={t('orderForm.quantity')} type="number" min="0.01" step="0.01" value={line.quantity} onChange={(event) => updateLine(line.key, { quantity: event.target.value })} /> : line.quantity}</td>
+                <td className="o-num">{editable ? <input className="o-input o-num" aria-label={t('orderForm.unitPrice')} type="number" min="0" step="0.01" value={line.unitPrice} onChange={(event) => updateLine(line.key, { unitPrice: event.target.value })} /> : formatMoney(line.unitPrice)}</td>
                 <td>
                   {editable
-                    ? <Many2ManyTags aria-label="Line taxes" options={taxOptions} value={line.taxIds} onChange={(ids) => updateLine(line.key, { taxIds: ids })} placeholder="No tax" />
+                    ? <Many2ManyTags aria-label={t('orderForm.lineTaxes')} options={taxOptions} value={line.taxIds} onChange={(ids) => updateLine(line.key, { taxIds: ids })} placeholder={t('orderForm.noTax')} />
                     : <div className="cat-tags">{line.taxIds.map((taxId) => <span key={taxId} className="o-tag">{taxOptions.find((tax) => tax.id === taxId)?.label}</span>)}{!line.taxIds.length && <span className="o-muted">—</span>}</div>}
                 </td>
                 <td className="o-num"><strong>{formatMoney(amounts[index].total)}</strong></td>
                 {editable && (
                   <td className="o-list-actions">
-                    <button type="button" className="o-btn o-btn-link o-btn-sm o-btn-danger" aria-label="Remove line" title="Remove line" disabled={draft.lines.length === 1} onClick={() => update({ lines: draft.lines.filter((item) => item.key !== line.key) })}>🗑</button>
+                    <button type="button" className="o-btn o-btn-link o-btn-sm o-btn-danger" aria-label={t('orderForm.removeLine')} title={t('orderForm.removeLine')} disabled={draft.lines.length === 1} onClick={() => update({ lines: draft.lines.filter((item) => item.key !== line.key) })}>🗑</button>
                   </td>
                 )}
               </tr>
@@ -288,11 +290,11 @@ export function PurchaseOrderFormPage() {
           </tbody>
         </table>
       </div>
-      {editable && <button type="button" className="o-list-add" onClick={() => update({ lines: [...draft.lines, newLine()] })}>Add a line</button>}
+      {editable && <button type="button" className="o-list-add" onClick={() => update({ lines: [...draft.lines, newLine()] })}>{t('orderForm.addLine')}</button>}
       <div className="o-totals">
-        <div><span>Untaxed</span><span>{formatMoney(totals.subtotal)}</span></div>
-        <div><span>Taxes</span><span>{formatMoney(totals.tax)}</span></div>
-        <div className="o-totals-grand"><span>Total payable</span><strong>{formatMoney(totals.total)}</strong></div>
+        <div><span>{t('orderForm.untaxed')}</span><span>{formatMoney(totals.subtotal)}</span></div>
+        <div><span>{t('orderForm.taxes')}</span><span>{formatMoney(totals.tax)}</span></div>
+        <div className="o-totals-grand"><span>{t('orderForm.totalPayable')}</span><strong>{formatMoney(totals.total)}</strong></div>
       </div>
     </>
   )
@@ -301,47 +303,47 @@ export function PurchaseOrderFormPage() {
   const schedulePage = (
     <>
       <p className="o-form-hint">
-        Split what you owe the vendor into milestones, e.g. a deposit on signing and the balance on delivery.
-        {order && <> Vendor terms: <strong>{order.vendor_payment_terms}</strong>.</>}
+        {t('orderForm.scheduleHint')}
+        {order && <> {t('orderForm.vendorTerms')} <strong>{order.vendor_payment_terms}</strong>.</>}
       </p>
       <div className="o-list-wrap">
         <table className="o-list">
-          <thead><tr><th scope="col">Payment</th><th scope="col">Due</th><th scope="col" className="o-num">Amount</th>{billable && <th scope="col">Paid</th>}{editable && <th scope="col" className="o-list-actions"><span className="sr-only">Actions</span></th>}</tr></thead>
+          <thead><tr><th scope="col">{t('orderForm.payment')}</th><th scope="col">{t('orderForm.due')}</th><th scope="col" className="o-num">{t('orderForm.amount')}</th>{billable && <th scope="col">{t('orderForm.paid')}</th>}{editable && <th scope="col" className="o-list-actions"><span className="sr-only">{t('orderForm.actions')}</span></th>}</tr></thead>
           <tbody>
             {draft.schedule.map((item) => (
               <tr key={item.key}>
-                <td>{editable ? <input className="o-input" aria-label="Payment label" placeholder="e.g. 50% deposit" value={item.label} onChange={(event) => updatePayment(item.key, { label: event.target.value })} /> : item.label}</td>
+                <td>{editable ? <input className="o-input" aria-label={t('orderForm.paymentLabel')} placeholder={t('orderForm.paymentPlaceholder')} value={item.label} onChange={(event) => updatePayment(item.key, { label: event.target.value })} /> : item.label}</td>
                 <td>{editable ? <EthiopianDateInput value={item.dueDate} onChange={(iso) => updatePayment(item.key, { dueDate: iso })} /> : (item.dueDate ? formatDualDate(item.dueDate) : '—')}</td>
-                <td className="o-num">{editable ? <input className="o-input o-num" aria-label="Payment amount" type="number" min="0.01" step="0.01" value={item.amount} onChange={(event) => updatePayment(item.key, { amount: event.target.value })} /> : formatMoney(item.amount)}</td>
+                <td className="o-num">{editable ? <input className="o-input o-num" aria-label={t('orderForm.paymentAmount')} type="number" min="0.01" step="0.01" value={item.amount} onChange={(event) => updatePayment(item.key, { amount: event.target.value })} /> : formatMoney(item.amount)}</td>
                 {billable && (() => {
                   const saved = order?.payment_schedule.find((row) => String(row.id) === item.key)
-                  if (saved?.bill) return <td><AccessLink module="expenses" to={`/dashboard/expenses/${saved.bill.id}`} className="proc-status proc-status--received">Paid · {saved.bill.reference}</AccessLink></td>
-                  return <td>{order?.can_approve && saved ? <Link to={`/dashboard/expenses/new?purchase_order=${order.id}&payment=${saved.id}`} className="cat-row-link">Record payment</Link> : <span className="o-muted">Not yet</span>}</td>
+                  if (saved?.bill) return <td><AccessLink module="expenses" to={`/dashboard/expenses/${saved.bill.id}`} className="proc-status proc-status--received">{t('orderForm.paidRef', { reference: saved.bill.reference })}</AccessLink></td>
+                  return <td>{order?.can_approve && saved ? <Link to={`/dashboard/expenses/new?purchase_order=${order.id}&payment=${saved.id}`} className="cat-row-link">{t('orderForm.recordPayment')}</Link> : <span className="o-muted">{t('orderForm.notYet')}</span>}</td>
                 })()}
-                {editable && <td className="o-list-actions"><button type="button" className="o-btn o-btn-link o-btn-sm o-btn-danger" aria-label="Remove payment" title="Remove payment" onClick={() => update({ schedule: draft.schedule.filter((row) => row.key !== item.key) })}>🗑</button></td>}
+                {editable && <td className="o-list-actions"><button type="button" className="o-btn o-btn-link o-btn-sm o-btn-danger" aria-label={t('orderForm.removePayment')} title={t('orderForm.removePayment')} onClick={() => update({ schedule: draft.schedule.filter((row) => row.key !== item.key) })}>🗑</button></td>}
               </tr>
             ))}
-            {draft.schedule.length === 0 && <tr><td colSpan={editable || billable ? 4 : 3} className="o-list-empty">No schedule: the full amount follows the vendor’s payment terms.</td></tr>}
+            {draft.schedule.length === 0 && <tr><td colSpan={editable || billable ? 4 : 3} className="o-list-empty">{t('orderForm.noSchedule')}</td></tr>}
           </tbody>
         </table>
       </div>
       {editable && (
         <div className="proc-schedule-actions">
-          <button type="button" className="o-list-add" onClick={() => update({ schedule: [...draft.schedule, { key: newKey(), label: '', amount: String(round(Math.max(totals.total - scheduled, 0))), dueDate: '' }] })}>Add a payment</button>
+          <button type="button" className="o-list-add" onClick={() => update({ schedule: [...draft.schedule, { key: newKey(), label: '', amount: String(round(Math.max(totals.total - scheduled, 0))), dueDate: '' }] })}>{t('orderForm.addPayment')}</button>
           {draft.schedule.length === 0 && totals.total > 0 && (
             <button type="button" className="o-btn o-btn-link o-btn-sm" onClick={() => {
               const half = round(totals.total / 2)
               update({ schedule: [
-                { key: newKey(), label: '50% deposit', amount: String(half), dueDate: '' },
-                { key: newKey(), label: 'Balance on delivery', amount: String(round(totals.total - half)), dueDate: draft.deliveryDate },
+                { key: newKey(), label: t('orderForm.deposit'), amount: String(half), dueDate: '' },
+                { key: newKey(), label: t('orderForm.balance'), amount: String(round(totals.total - half)), dueDate: draft.deliveryDate },
               ] })
-            }}>Use 50 / 50</button>
+            }}>{t('orderForm.fiftyFifty')}</button>
           )}
         </div>
       )}
       {draft.schedule.length > 0 && (
         <p className={`o-form-hint${scheduled !== round(totals.total) ? ' proc-warning' : ''}`}>
-          Scheduled {formatMoney(scheduled)} of {formatMoney(totals.total)}
+          {t('orderForm.scheduledOf', { scheduled: formatMoney(scheduled), total: formatMoney(totals.total) })}
           {scheduled !== round(totals.total) && ` — ${formatMoney(round(totals.total - scheduled))} unassigned`}
         </p>
       )}
@@ -352,10 +354,10 @@ export function PurchaseOrderFormPage() {
   const billedTotal = Number(order?.billed_total ?? 0)
   const billsPage = order && (
     <>
-      <p className="o-form-hint">What has actually been paid to {order.vendor_name}. Each bill is an expense on {order.event_name}.</p>
+      <p className="o-form-hint">{t('orderForm.billsHint', { vendor: order.vendor_name, event: order.event_name })}</p>
       <div className="o-list-wrap">
         <table className="o-list">
-          <thead><tr><th scope="col">Bill</th><th scope="col">Date</th><th scope="col">For</th><th scope="col">Paid by</th><th scope="col" className="o-num">Amount</th></tr></thead>
+          <thead><tr><th scope="col">{t('orderForm.bill')}</th><th scope="col">{t('orderForm.date')}</th><th scope="col">{t('orderForm.for')}</th><th scope="col">{t('orderForm.paidBy')}</th><th scope="col" className="o-num">{t('orderForm.amount')}</th></tr></thead>
           <tbody>
             {order.bills.map((bill) => (
               <tr key={bill.id}>
@@ -366,16 +368,16 @@ export function PurchaseOrderFormPage() {
                 <td className="o-num">{formatMoney(bill.total)}</td>
               </tr>
             ))}
-            {order.bills.length === 0 && <tr><td colSpan={5} className="o-list-empty">{billable ? 'Nothing paid yet.' : 'Bills can be recorded once the order is approved.'}</td></tr>}
+            {order.bills.length === 0 && <tr><td colSpan={5} className="o-list-empty">{billable ? t('orderForm.nothingPaid') : t('orderForm.billsAfterApproval')}</td></tr>}
           </tbody>
         </table>
       </div>
       {billable && order.can_approve && billedTotal < Number(order.total) && (
-        <Link to={`/dashboard/expenses/new?purchase_order=${order.id}`} className="o-list-add">Record a bill</Link>
+        <Link to={`/dashboard/expenses/new?purchase_order=${order.id}`} className="o-list-add">{t('orderForm.recordBill')}</Link>
       )}
       <div className="o-totals">
-        <div><span>Billed</span><span>{formatMoney(billedTotal)}</span></div>
-        <div className="o-totals-grand"><span>Left to pay</span><strong>{formatMoney(Number(order.total) - billedTotal)}</strong></div>
+        <div><span>{t('orderForm.billed')}</span><span>{formatMoney(billedTotal)}</span></div>
+        <div className="o-totals-grand"><span>{t('orderForm.leftToPay')}</span><strong>{formatMoney(Number(order.total) - billedTotal)}</strong></div>
       </div>
     </>
   )
@@ -384,44 +386,44 @@ export function PurchaseOrderFormPage() {
   const thisOrderCounts = order && (order.status === 'approved' || order.status === 'received')
   const projected = budget ? Number(budget.committed) + (thisOrderCounts ? 0 : totals.total) : 0
   const overBudget = budget?.budget !== null && budget !== null && projected > Number(budget.budget)
-  const budgetPage = !draft.event ? <p className="o-form-hint">Choose an event to see its budget.</p> : !budget ? <div className="o-form-loading" role="status"><span /><span /><span /></div> : (
+  const budgetPage = !draft.event ? <p className="o-form-hint">{t('orderForm.chooseEventBudget')}</p> : !budget ? <div className="o-form-loading" role="status"><span /><span /><span /></div> : (
     <>
       <div className="proc-budget">
-        <div><span>Cost budget</span><strong>{formatMoney(budget.budget)}</strong></div>
-        <div><span>Committed</span><strong>{formatMoney(budget.committed)}</strong><small>Approved and received orders</small></div>
-        <div><span>Waiting approval</span><strong>{formatMoney(budget.pending)}</strong></div>
-        <div className={budget.remaining !== null && Number(budget.remaining) < 0 ? 'is-danger' : ''}><span>Remaining</span><strong>{formatMoney(budget.remaining)}</strong></div>
+        <div><span>{t('orderForm.costBudget')}</span><strong>{formatMoney(budget.budget)}</strong></div>
+        <div><span>{t('orderForm.committed')}</span><strong>{formatMoney(budget.committed)}</strong><small>{t('orderForm.committedHint')}</small></div>
+        <div><span>{t('orderForm.waitingApproval')}</span><strong>{formatMoney(budget.pending)}</strong></div>
+        <div className={budget.remaining !== null && Number(budget.remaining) < 0 ? 'is-danger' : ''}><span>{t('orderForm.remaining')}</span><strong>{formatMoney(budget.remaining)}</strong></div>
       </div>
       {budget.budget !== null && (
-        <div className="proc-meter" role="img" aria-label={`${Math.round((Number(budget.committed) / Math.max(Number(budget.budget), 1)) * 100)}% of the budget committed`}>
+        <div className="proc-meter" role="img" aria-label={t('orderForm.budgetMeter', { percent: Math.round((Number(budget.committed) / Math.max(Number(budget.budget), 1)) * 100) })}>
           <span style={{ width: `${Math.min((Number(budget.committed) / Math.max(Number(budget.budget), 1)) * 100, 100)}%` }} />
           <span className="is-pending" style={{ width: `${Math.min((Number(budget.pending) / Math.max(Number(budget.budget), 1)) * 100, 100)}%` }} />
         </div>
       )}
       {overBudget && !thisOrderCounts && order?.status !== 'cancelled' && (
-        <p className="o-form-hint proc-warning">Approving this order would take the event {formatMoney(projected - Number(budget.budget))} over budget.</p>
+        <p className="o-form-hint proc-warning">{t('orderForm.overBudget', { amount: formatMoney(projected - Number(budget.budget)) })}</p>
       )}
-      {budget.budget === null && <p className="o-form-hint">No budget set for this event yet, so orders are not checked against one.</p>}
+      {budget.budget === null && <p className="o-form-hint">{t('orderForm.noBudget')}</p>}
       {budget.can_set_budget && (
         <div className="cat-quick-create">
-          <input className="o-input" type="number" min="0" step="0.01" aria-label="Event cost budget" placeholder="Set the event’s vendor budget (ETB)" value={budgetInput} onChange={(event) => setBudgetInput(event.target.value)} />
-          <button type="button" className="o-btn o-btn-secondary o-btn-sm" disabled={(budget.budget ?? '') === budgetInput} onClick={() => void saveBudget()}>Save budget</button>
+          <input className="o-input" type="number" min="0" step="0.01" aria-label={t('orderForm.budgetInputLabel')} placeholder={t('orderForm.budgetInputPlaceholder')} value={budgetInput} onChange={(event) => setBudgetInput(event.target.value)} />
+          <button type="button" className="o-btn o-btn-secondary o-btn-sm" disabled={(budget.budget ?? '') === budgetInput} onClick={() => void saveBudget()}>{t('orderForm.saveBudget')}</button>
         </div>
       )}
-      <h3 className="proc-subhead">Orders for {budget.event_name}</h3>
+      <h3 className="proc-subhead">{t('orderForm.ordersFor', { event: budget.event_name })}</h3>
       <div className="o-list-wrap">
         <table className="o-list">
-          <thead><tr><th scope="col">Order</th><th scope="col">Vendor</th><th scope="col">Status</th><th scope="col" className="o-num">Total</th></tr></thead>
+          <thead><tr><th scope="col">{t('orderForm.order')}</th><th scope="col">{t('orderForm.vendor')}</th><th scope="col">{t('orderForm.status')}</th><th scope="col" className="o-num">{t('orderForm.total')}</th></tr></thead>
           <tbody>
             {budget.orders.map((item) => (
               <tr key={item.id} className={item.id === order?.id ? 'is-dirty' : ''}>
                 <td>{item.id === order?.id ? <strong>{item.reference}</strong> : <Link to={`/dashboard/purchase-orders/${item.id}`} className="cat-row-link">{item.reference}</Link>}</td>
                 <td>{item.vendor_name}<div className="cat-muted">{item.vendor_category}</div></td>
-                <td><span className={`proc-status proc-status--${item.status}`}>{item.status_label}</span></td>
+                <td><span className={`proc-status proc-status--${item.status}`}>{t(`orderStatus.${item.status as 'draft'}`, { defaultValue: item.status_label })}</span></td>
                 <td className="o-num">{formatMoney(item.total)}</td>
               </tr>
             ))}
-            {budget.orders.length === 0 && <tr><td colSpan={4} className="o-list-empty">No orders for this event yet.</td></tr>}
+            {budget.orders.length === 0 && <tr><td colSpan={4} className="o-list-empty">{t('orderForm.noEventOrders')}</td></tr>}
           </tbody>
         </table>
       </div>
@@ -441,75 +443,75 @@ export function PurchaseOrderFormPage() {
       {notice && <p className="o-inline-notice" role="status">{notice}</p>}
       {(isNew || order) && (
         <RecordFormView
-          modelName="Purchase order"
+          modelName={t('orders.model')}
           title={order?.reference ?? ''}
-          subtitle={order ? `${order.vendor_name} for ${order.event_name}` : 'Commit to a vendor for one event.'}
+          subtitle={order ? t('orderForm.subtitle', { vendor: order.vendor_name, event: order.event_name }) : t('orderForm.newSubtitle')}
           recordId={order?.id}
           backHref="/dashboard/purchase-orders"
-          backLabel="Purchase orders"
-          ribbon={order && statusTone ? { label: order.status_label, tone: statusTone } : null}
+          backLabel={t('orderForm.back')}
+          ribbon={order && statusTone ? { label: t(`orderStatus.${order.status as 'draft'}`, { defaultValue: order.status_label }), tone: statusTone } : null}
           status={order?.status ?? 'draft'}
-          statusOptions={ORDER_STATUSES.map((item) => ({ ...item, folded: item.value === 'cancelled' }))}
+          statusOptions={orderStatuses().map((item) => ({ ...item, folded: item.value === 'cancelled' }))}
           actionSlot={order && <>
-            {order.status === 'draft' && <button type="button" className="o-btn o-btn-primary" disabled={busy || dirty} title={dirty ? 'Save your changes first' : undefined} onClick={() => void transition('submit')}>Submit for approval</button>}
+            {order.status === 'draft' && <button type="button" className="o-btn o-btn-primary" disabled={busy || dirty} title={dirty ? t('orderForm.saveFirst') : undefined} onClick={() => void transition('submit')}>{t('orderForm.submitApproval')}</button>}
             {order.status === 'submitted' && order.can_approve && <>
-              <button type="button" className="o-btn o-btn-primary" disabled={busy} onClick={() => void transition('approve')}>Approve</button>
-              <button type="button" className="o-btn o-btn-secondary" disabled={busy} onClick={() => void transition('reject')}>Send back</button>
+              <button type="button" className="o-btn o-btn-primary" disabled={busy} onClick={() => void transition('approve')}>{t('orderForm.approve')}</button>
+              <button type="button" className="o-btn o-btn-secondary" disabled={busy} onClick={() => void transition('reject')}>{t('orderForm.sendBack')}</button>
             </>}
-            {order.status === 'submitted' && !order.can_approve && <span className="cat-muted">Waiting for finance to approve.</span>}
-            {order.status === 'approved' && <button type="button" className="o-btn o-btn-primary" disabled={busy} onClick={() => void transition('receive')}>Mark Paid</button>}
-            {billable && order.can_approve && billedTotal < Number(order.total) && <Link to={`/dashboard/expenses/new?purchase_order=${order.id}`} className="o-btn o-btn-secondary">Record bill</Link>}
-            {order.status === 'approved' && order.can_approve && !order.bills.length && <button type="button" className="o-btn o-btn-secondary" disabled={busy} onClick={() => void transition('reject')}>Back to draft</button>}
+            {order.status === 'submitted' && !order.can_approve && <span className="cat-muted">{t('orderForm.waitingFinance')}</span>}
+            {order.status === 'approved' && <button type="button" className="o-btn o-btn-primary" disabled={busy} onClick={() => void transition('receive')}>{t('orderForm.markPaid')}</button>}
+            {billable && order.can_approve && billedTotal < Number(order.total) && <Link to={`/dashboard/expenses/new?purchase_order=${order.id}`} className="o-btn o-btn-secondary">{t('orderForm.recordBillShort')}</Link>}
+            {order.status === 'approved' && order.can_approve && !order.bills.length && <button type="button" className="o-btn o-btn-secondary" disabled={busy} onClick={() => void transition('reject')}>{t('orderForm.backToDraft')}</button>}
             {['draft', 'submitted'].includes(order.status) || (order.status === 'approved' && order.can_approve && !order.bills.length)
-              ? <button type="button" className="o-btn o-btn-link" disabled={busy} onClick={() => void transition('cancel')}>Cancel order</button>
+              ? <button type="button" className="o-btn o-btn-link" disabled={busy} onClick={() => void transition('cancel')}>{t('orderForm.cancelOrder')}</button>
               : null}
-            {order.status !== 'draft' && <button type="button" className="o-btn o-btn-secondary" onClick={() => window.print()}>Print</button>}
+            {order.status !== 'draft' && <button type="button" className="o-btn o-btn-secondary" onClick={() => window.print()}>{t('orderForm.print')}</button>}
           </>}
           headerAside={<>
             <div className="o-stat-button">
               <span className="o-stat-icon" aria-hidden="true">Br</span>
-              <span><strong>{formatMoney(totals.total)}</strong><small>Total</small></span>
+              <span><strong>{formatMoney(totals.total)}</strong><small>{t('orderForm.statTotal')}</small></span>
             </div>
             {budget && budget.budget !== null && (
               <div className={`o-stat-button${overBudget ? ' is-danger' : ''}`}>
                 <span className="o-stat-icon" aria-hidden="true">%</span>
-                <span><strong>{formatMoney(budget.remaining)}</strong><small>Budget left</small></span>
+                <span><strong>{formatMoney(budget.remaining)}</strong><small>{t('orderForm.statBudgetLeft')}</small></span>
               </div>
             )}
             {order && (
               <Link to={`/dashboard/vendors/${order.vendor}`} className="o-stat-button">
                 <span className="o-stat-icon" aria-hidden="true">◈</span>
-                <span><strong>{order.vendor_name}</strong><small>Vendor</small></span>
+                <span><strong>{order.vendor_name}</strong><small>{t('orderForm.statVendor')}</small></span>
               </Link>
             )}
           </>}
           headerFields={[
-            { name: 'vendor', label: 'Vendor', type: 'select', value: draft.vendor, required: true, readOnly: !editable, options: [{ value: '', label: 'Choose a vendor' }, ...vendorOptions] },
-            { name: 'event', label: 'Event', type: 'select', value: draft.event, required: true, readOnly: !isNew, options: [{ value: '', label: 'Choose an event' }, ...eventOptions], helpText: selectedEvent ? `${selectedEvent.customer} · ${selectedEvent.location}` : undefined },
+            { name: 'vendor', label: t('orderForm.vendor'), type: 'select', value: draft.vendor, required: true, readOnly: !editable, options: [{ value: '', label: t('orderForm.chooseVendor') }, ...vendorOptions] },
+            { name: 'event', label: t('orderForm.event'), type: 'select', value: draft.event, required: true, readOnly: !isNew, options: [{ value: '', label: t('orderForm.chooseEvent') }, ...eventOptions], helpText: selectedEvent ? `${selectedEvent.customer} · ${selectedEvent.location}` : undefined },
             {
-              name: 'delivery', label: 'Delivery', type: 'custom',
+              name: 'delivery', label: t('orderForm.delivery'), type: 'custom',
               render: editable ? (
                 <div className="proc-datetime">
                   <EthiopianDateInput value={draft.deliveryDate} onChange={(iso) => update({ deliveryDate: iso })} />
-                  <input className="o-input" type="time" aria-label="Delivery time" value={draft.deliveryTime} onChange={(event) => update({ deliveryTime: event.target.value })} />
+                  <input className="o-input" type="time" aria-label={t('orderForm.deliveryTime')} value={draft.deliveryTime} onChange={(event) => update({ deliveryTime: event.target.value })} />
                 </div>
               ) : (
-                <div className={`o-field-value${draft.deliveryDate ? '' : ' is-empty'}`}>{draft.deliveryDate ? `${formatDualDate(draft.deliveryDate)}${draft.deliveryTime ? ` · ${draft.deliveryTime}` : ''}` : 'Not set'}</div>
+                <div className={`o-field-value${draft.deliveryDate ? '' : ' is-empty'}`}>{draft.deliveryDate ? `${formatDualDate(draft.deliveryDate)}${draft.deliveryTime ? ` · ${draft.deliveryTime}` : ''}` : t('orderForm.notSet')}</div>
               ),
             },
-            { name: 'deliveryLocation', label: 'Deliver to', value: draft.deliveryLocation, readOnly: !editable, placeholder: selectedEvent?.location || 'e.g. Venue kitchen' },
+            { name: 'deliveryLocation', label: t('orderForm.deliverTo'), value: draft.deliveryLocation, readOnly: !editable, placeholder: selectedEvent?.location || t('orderForm.deliverToPlaceholder') },
             ...(order ? [
-              { name: 'order_date', label: 'Order date', type: 'date' as const, value: order.order_date, readOnly: true },
-              { name: 'approved', label: order.approved_by_name ? 'Approved by' : 'Raised by', value: order.approved_by_name ?? order.created_by_name ?? '—', readOnly: true },
+              { name: 'order_date', label: t('orderForm.orderDate'), type: 'date' as const, value: order.order_date, readOnly: true },
+              { name: 'approved', label: order.approved_by_name ? t('orderForm.approvedBy') : t('orderForm.raisedBy'), value: order.approved_by_name ?? order.created_by_name ?? '—', readOnly: true },
             ] : []),
           ]}
           onFieldChange={(name, value) => update({ [name]: value } as Partial<Draft>)}
           tabs={[
-            { id: 'lines', label: 'Lines', badge: draft.lines.length, content: linesPage },
-            { id: 'schedule', label: 'Payment schedule', badge: draft.schedule.length || undefined, content: schedulePage },
-            ...(order && order.status !== 'draft' && order.status !== 'submitted' ? [{ id: 'bills', label: 'Bills', badge: order.bills.length, content: billsPage }] : []),
-            { id: 'budget', label: 'Event budget', content: budgetPage },
-            { id: 'notes', label: 'Notes', sections: [{ title: 'Terms and notes', fields: [{ name: 'notes', label: 'Notes', type: 'textarea', value: draft.notes, fullWidth: true, readOnly: !editable, placeholder: 'Menu details, setup requirements, cancellation terms…' }] }] },
+            { id: 'lines', label: t('orderForm.lines'), badge: draft.lines.length, content: linesPage },
+            { id: 'schedule', label: t('orderForm.paymentSchedule'), badge: draft.schedule.length || undefined, content: schedulePage },
+            ...(order && order.status !== 'draft' && order.status !== 'submitted' ? [{ id: 'bills', label: t('orderForm.billsTab'), badge: order.bills.length, content: billsPage }] : []),
+            { id: 'budget', label: t('orderForm.budgetTab'), content: budgetPage },
+            { id: 'notes', label: t('orderForm.notesTab'), sections: [{ title: t('orderForm.termsNotes'), fields: [{ name: 'notes', label: t('orderForm.notes'), type: 'textarea', value: draft.notes, fullWidth: true, readOnly: !editable, placeholder: t('orderForm.notesPlaceholder') }] }] },
           ]}
           onSubmit={editable ? (event) => void save(event) : undefined}
           dirty={dirty}
@@ -520,37 +522,37 @@ export function PurchaseOrderFormPage() {
           }}
           saving={saving}
           saved={saved}
-          submitLabel={isNew ? 'Create draft' : 'Save'}
+          submitLabel={isNew ? t('orderForm.createDraft') : t('orderForm.save')}
           chatter={order ? { model: 'purchaseorder', recordId: order.id, refreshKey: chatterKey } : undefined}
         >
           {order && order.status !== 'draft' && (
-            <article className="invoice-printable" aria-label="Printable purchase order">
+            <article className="invoice-printable" aria-label={t('print.label')}>
               <header className="invoice-print-header">
-                <div><p className="invoice-print-brand">Bahran Events</p><p className="invoice-print-muted">Event planning and experiences</p></div>
-                <div className="invoice-print-title"><p>PURCHASE ORDER</p><h1>{order.reference}</h1></div>
+                <div><p className="invoice-print-brand">{t('print.brand')}</p><p className="invoice-print-muted">{t('print.tagline')}</p></div>
+                <div className="invoice-print-title"><p>{t('print.title')}</p><h1>{order.reference}</h1></div>
               </header>
               <div className="invoice-print-meta">
-                <div><span>Vendor</span><strong>{order.vendor_name}</strong></div>
-                <div><span>Order date</span><strong>{formatDualDate(order.order_date)}</strong></div>
-                <div><span>Event</span><strong>{order.event_name}</strong></div>
-                <div><span>Delivery</span><strong>{draft.deliveryDate ? `${formatDualDate(draft.deliveryDate)} ${draft.deliveryTime}` : '—'}</strong></div>
-                <div><span>Deliver to</span><strong>{order.delivery_location || order.event_location}</strong></div>
-                <div><span>Payment terms</span><strong>{order.vendor_payment_terms}</strong></div>
+                <div><span>{t('print.vendor')}</span><strong>{order.vendor_name}</strong></div>
+                <div><span>{t('print.orderDate')}</span><strong>{formatDualDate(order.order_date)}</strong></div>
+                <div><span>{t('print.event')}</span><strong>{order.event_name}</strong></div>
+                <div><span>{t('print.delivery')}</span><strong>{draft.deliveryDate ? `${formatDualDate(draft.deliveryDate)} ${draft.deliveryTime}` : '—'}</strong></div>
+                <div><span>{t('print.deliverTo')}</span><strong>{order.delivery_location || order.event_location}</strong></div>
+                <div><span>{t('print.paymentTerms')}</span><strong>{order.vendor_payment_terms}</strong></div>
               </div>
               <table className="invoice-print-table">
-                <thead><tr><th>Description</th><th>Qty</th><th>Unit price</th><th>Amount</th></tr></thead>
+                <thead><tr><th>{t('print.description')}</th><th>{t('print.qty')}</th><th>{t('print.unitPrice')}</th><th>{t('print.amount')}</th></tr></thead>
                 <tbody>{order.lines.map((line) => <tr key={line.id}><td><strong>{line.description}</strong><small>{line.kind_label}</small></td><td>{Number(line.quantity)}</td><td>{formatMoney(line.unit_price)}</td><td>{formatMoney(line.total)}</td></tr>)}</tbody>
               </table>
               <section className="invoice-print-totals">
                 <div className="invoice-print-tax-breakdown">
-                  <div><span>Untaxed</span><span>{formatMoney(order.subtotal)}</span></div>
-                  <div><span>Taxes</span><span>{formatMoney(order.tax)}</span></div>
+                  <div><span>{t('print.untaxed')}</span><span>{formatMoney(order.subtotal)}</span></div>
+                  <div><span>{t('print.taxes')}</span><span>{formatMoney(order.tax)}</span></div>
                   {order.payment_schedule.map((item) => <div key={item.id}><span>{item.label}{item.due_date ? ` · ${formatDualDate(item.due_date)}` : ''}</span><span>{formatMoney(item.amount)}</span></div>)}
                 </div>
-                <div className="invoice-print-grand-total"><span>Total</span><strong>{formatMoney(order.total)}</strong></div>
+                <div className="invoice-print-grand-total"><span>{t('print.total')}</span><strong>{formatMoney(order.total)}</strong></div>
               </section>
               {order.notes && <p className="invoice-print-muted">{order.notes}</p>}
-              <footer className="invoice-print-footer">{order.approved_by_name ? `Approved by ${order.approved_by_name}` : 'Not yet approved'}</footer>
+              <footer className="invoice-print-footer">{order.approved_by_name ? t('print.approvedBy', { name: order.approved_by_name }) : t('print.notApproved')}</footer>
             </article>
           )}
         </RecordFormView>

@@ -1,3 +1,5 @@
+import { HadafeLockup } from '@/components/HadafeLogo'
+import { UserMenu } from '@/components/user-menu'
 import { useId, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import {
@@ -6,12 +8,15 @@ import {
 } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon, type IconSvgElement } from '@hugeicons/react'
 import { cn } from 'cn'
-import { UserMenu } from '@/components/user-menu'
 import { visibleNavigation } from '@/components/admin-navigation'
 import { useProfileStatus } from '@/lib/use-profile'
+import { useTranslation } from 'react-i18next'
+import type navEn from '@/i18n/en/nav'
+import { LocaleSwitch } from '@/lib/i18n'
 
 export type SideNavItem = {
-  menu: string
+  /** Key in the `nav` translations. */
+  menu: keyof typeof navEn
   icon: IconSvgElement
   route?: string
   exact?: boolean
@@ -50,6 +55,8 @@ function SideNavEntry({
   depth?: number
 }) {
   const { pathname } = useLocation()
+  const { t } = useTranslation('nav')
+  const label = t(item.menu)
   const hasChildren = Boolean(item.children?.length)
   const active = isRouteActive(item.route, pathname, item.exact)
   const childActive = hasChildren && hasActiveChild(item.children!, pathname)
@@ -88,7 +95,7 @@ function SideNavEntry({
               className={cn('size-[18px] shrink-0', highlighted && 'text-indigo-700')}
               strokeWidth={1.8}
             />
-            <span className="min-w-0 flex-1 truncate">{item.menu}</span>
+            <span className="min-w-0 flex-1 truncate">{label}</span>
           </Link>
         ) : hasChildren ? (
           <button
@@ -104,7 +111,7 @@ function SideNavEntry({
               className={cn('size-[18px] shrink-0', highlighted && 'text-indigo-700')}
               strokeWidth={1.8}
             />
-            <span className="min-w-0 flex-1 truncate">{item.menu}</span>
+            <span className="min-w-0 flex-1 truncate">{label}</span>
             <HugeiconsIcon
               icon={expanded ? ArrowDown01Icon : ArrowRight01Icon}
               className="size-4 shrink-0"
@@ -118,13 +125,13 @@ function SideNavEntry({
               className="size-[18px] shrink-0"
               strokeWidth={1.8}
             />
-            <span className="min-w-0 flex-1 truncate">{item.menu}</span>
+            <span className="min-w-0 flex-1 truncate">{label}</span>
           </div>
         )}
         {hasChildren && item.route && (
           <button
             type="button"
-            aria-label={`${expanded ? 'Collapse' : 'Expand'} ${item.menu}`}
+            aria-label={t(expanded ? 'collapse' : 'expand', { item: label })}
             aria-expanded={expanded}
             aria-controls={childListId}
             onClick={() => setExpansion({ pathname, expanded: !expanded })}
@@ -155,21 +162,19 @@ export function SideNav({
   className,
 }: SideNavProps) {
   const { profile, loading } = useProfileStatus()
+  const { t } = useTranslation('nav')
   // Show nothing until we know the role, so people never see menus they can't open.
   const shown = loading ? [] : visibleNavigation(items, profile)
   return (
     <aside
-      aria-label="Main navigation"
+      aria-label={t('mainNavigation')}
       className={cn(
         'bahran-side-nav flex h-screen w-64 shrink-0 flex-col border-r border-slate-200 bg-white px-4 py-6',
         className
       )}
     >
-      <Link to="/" className="side-nav-brand mb-9 flex items-center gap-3 px-2">
-        <span className="side-nav-mark" aria-hidden="true">✥</span>
-        <span className="truncate text-sm font-bold tracking-wide text-slate-800">
-          {title}
-        </span>
+      <Link to="/" aria-label={title} className="side-nav-brand mb-9 flex items-center gap-3 px-2">
+        <HadafeLockup size={38} onDark />
       </Link>
 
       <nav className="min-h-0 flex-1 overflow-y-auto">
@@ -179,6 +184,8 @@ export function SideNav({
           ))}
         </ul>
       </nav>
+
+      <LocaleSwitch className="locale-switch--nav" />
       <UserMenu />
     </aside>
   )

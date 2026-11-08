@@ -1,5 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useParams } from 'react-router-dom'
+import i18n from '@/i18n'
 import { adminNavigationItems } from '@/components/admin-navigation'
 import { SideNav } from '@/components/side-nav'
 import { apiBaseUrl } from '@/lib/api'
@@ -53,7 +55,7 @@ function linesSignature(lines: EditableLine[]) {
 }
 
 function formatDate(value: string | null) {
-  if (!value) return 'Not set'
+  if (!value) return i18n.t('invoices:detail.notSet')
   return formatDualDate(value)
 }
 
@@ -68,6 +70,7 @@ function getErrorMessage(data: unknown, fallback: string) {
 }
 
 export function InvoiceDetailPage() {
+  const { t } = useTranslation('invoices')
   const { id } = useParams<{ id: string }>()
   const [invoice, setInvoice] = useState<Invoice | null>(null)
   const [contents, setContents] = useState<ContentOption[]>([])
@@ -79,12 +82,12 @@ export function InvoiceDetailPage() {
   const [chatterKey, setChatterKey] = useState(0)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
   const [error, setError] = useState('')
-  const [notice, setNotice] = useState('')
 
   useEffect(() => {
     if (!id) {
-      setError('Invoice number is missing from the page address.')
+      setError(i18n.t('invoices:detail.missingId'))
       setLoading(false)
       return
     }
@@ -103,8 +106,8 @@ export function InvoiceDetailPage() {
           }),
         ])
         const [invoiceData, optionsData] = await Promise.all([invoiceResponse.json(), optionsResponse.json()])
-        if (!invoiceResponse.ok) throw new Error(getErrorMessage(invoiceData, 'Could not load this invoice.'))
-        if (!optionsResponse.ok) throw new Error(getErrorMessage(optionsData, 'Could not load invoice editing options.'))
+        if (!invoiceResponse.ok) throw new Error(getErrorMessage(invoiceData, i18n.t('invoices:detail.loadFailed')))
+        if (!optionsResponse.ok) throw new Error(getErrorMessage(optionsData, i18n.t('invoices:detail.loadOptions')))
 
         const loadedInvoice = invoiceData as Invoice
         setInvoice(loadedInvoice)
@@ -113,7 +116,7 @@ export function InvoiceDetailPage() {
         resetDraft(loadedInvoice)
       } catch (loadError) {
         if (controller.signal.aborted) return
-        setError(loadError instanceof Error ? loadError.message : 'Could not load this invoice.')
+        setError(loadError instanceof Error ? loadError.message : i18n.t('invoices:detail.loadFailed'))
       } finally {
         if (!controller.signal.aborted) setLoading(false)
       }
@@ -148,7 +151,7 @@ export function InvoiceDetailPage() {
 
     setSaving(true)
     setError('')
-    setNotice('')
+    setSaved(false)
     try {
       const csrfToken = await fetchCsrfToken()
 
@@ -164,19 +167,21 @@ export function InvoiceDetailPage() {
         }),
       })
       const data = await response.json()
-      if (!response.ok) throw new Error(getErrorMessage(data, 'Could not save this invoice.'))
+      if (!response.ok) throw new Error(getErrorMessage(data, t('detail.saveFailed')))
 
       const savedInvoice = data as Invoice
       setInvoice(savedInvoice)
       resetDraft(savedInvoice)
-      setNotice('Invoice saved.')
+      setSaved(true)
       setChatterKey((key) => key + 1)
     } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : 'Could not save this invoice.')
+      setError(saveError instanceof Error ? saveError.message : t('detail.saveFailed'))
     } finally {
       setSaving(false)
     }
   }
+
+  const statusLabel = (value: Invoice['status']) => t(`status.${value}`)
 
   const linesPage = invoice && (
     <>
@@ -192,88 +197,88 @@ export function InvoiceDetailPage() {
         {invoice.tax_breakdown.map((tax) => (
           <div key={tax.kind}><span>{tax.kind}</span><span>{formatAmount(tax.amount)}</span></div>
         ))}
-        <div className="o-totals-grand"><span>Total</span><strong>{formatAmount(invoice.total)}</strong></div>
-        {dirty && <small>Totals refresh after you save.</small>}
+        <div className="o-totals-grand"><span>{t('detail.total')}</span><strong>{formatAmount(invoice.total)}</strong></div>
+        {dirty && <small>{t('record.totalsAfterSave')}</small>}
       </div>
     </>
   )
 
   return (
     <div className="bahran-dashboard flex min-h-screen">
-      <SideNav items={adminNavigationItems} title="Bahran Events" />
+      <SideNav items={adminNavigationItems} title="Hadafe Nefs" />
       <main className="bahran-dashboard-main min-w-0 flex-1 px-5 py-8 sm:px-8 lg:px-10">
         <div className="mx-auto max-w-7xl">
-          {loading && <div className="o-form-loading" role="status"><span /><span /><span /></div>}
+          {loading && <div className="o-form-loading" role="status" aria-label={t('detail.loading')}><span /><span /><span /></div>}
           {error && <p className="dashboard-message dashboard-message--error" role="alert">{error}</p>}
 
           {invoice && (
             <RecordFormView
-              modelName="Invoice"
+              modelName={t('model')}
               title={invoice.reference}
               subtitle={invoice.customer_name}
               recordId={invoice.id}
               backHref="/dashboard/invoices"
-              backLabel="Invoices"
-              ribbon={invoice.status === 'paid' ? { label: 'Paid', tone: 'success' } : null}
+              backLabel={t('form.backInvoices')}
+              ribbon={invoice.status === 'paid' ? { label: statusLabel('paid'), tone: 'success' } : null}
               status={status}
-              statusOptions={[{ value: 'unpaid', label: 'Unpaid' }, { value: 'paid', label: 'Paid' }]}
-              onStatusChange={(value) => { setStatus(value as Invoice['status']); setNotice('') }}
+              statusOptions={[{ value: 'unpaid', label: statusLabel('unpaid') }, { value: 'paid', label: statusLabel('paid') }]}
+              onStatusChange={(value) => { setStatus(value as Invoice['status']); setSaved(false) }}
               actionSlot={<>
-                {status === 'unpaid' && <button type="button" className="o-btn o-btn-primary" onClick={() => { setStatus('paid'); setNotice('') }}>Mark as paid</button>}
-                <button type="button" className="o-btn o-btn-secondary" onClick={() => window.print()} disabled={dirty} title={dirty ? 'Save your changes before printing' : undefined}>Print / PDF</button>
+                {status === 'unpaid' && <button type="button" className="o-btn o-btn-primary" onClick={() => { setStatus('paid'); setSaved(false) }}>{t('record.markPaid')}</button>}
+                <button type="button" className="o-btn o-btn-secondary" onClick={() => window.print()} disabled={dirty} title={dirty ? t('record.saveBeforePrint') : undefined}>{t('record.printPdf')}</button>
               </>}
               headerAside={
                 <div className="o-stat-button">
                   <span className="o-stat-icon" aria-hidden="true">Br</span>
-                  <span><strong>{formatAmount(invoice.total)}</strong><small>Total</small></span>
+                  <span><strong>{formatAmount(invoice.total)}</strong><small>{t('detail.total')}</small></span>
                 </div>
               }
               headerFields={[
-                { name: 'customer', label: 'Customer', value: invoice.customer_name, readOnly: true },
-                { name: 'date', label: 'Invoice date', type: 'date', value: invoice.date, readOnly: true },
-                { name: 'plan', label: 'Plan', value: invoice.plan_name, readOnly: true },
-                { name: 'due_date', label: 'Due date', type: 'date', value: dueDate },
-                { name: 'package', label: 'Package', value: invoice.package_name, readOnly: true },
-                { name: 'milestone', label: 'Milestone', value: milestone, placeholder: 'e.g. Deposit' },
+                { name: 'customer', label: t('form.customer'), value: invoice.customer_name, readOnly: true },
+                { name: 'date', label: t('record.invoiceDate'), type: 'date', value: invoice.date, readOnly: true },
+                { name: 'plan', label: t('form.plan'), value: invoice.plan_name, readOnly: true },
+                { name: 'due_date', label: t('form.dueDate'), type: 'date', value: dueDate },
+                { name: 'package', label: t('form.package'), value: invoice.package_name, readOnly: true },
+                { name: 'milestone', label: t('form.milestone'), value: milestone, placeholder: t('form.milestonePlaceholder') },
               ]}
               onFieldChange={(name, value) => {
-                setNotice('')
+                setSaved(false)
                 if (name === 'due_date') setDueDate(value)
                 if (name === 'milestone') setMilestone(value)
               }}
-              tabs={[{ id: 'lines', label: 'Invoice lines', badge: lines.length, content: linesPage }]}
+              tabs={[{ id: 'lines', label: t('form.linesTab'), badge: lines.length, content: linesPage }]}
               onSubmit={(event) => void saveInvoice(event)}
               dirty={dirty}
               onDiscard={() => { resetDraft(invoice); setError('') }}
               saving={saving}
-              saved={notice === 'Invoice saved.'}
+              saved={saved}
               chatter={{ model: 'invoice', recordId: invoice.id, refreshKey: chatterKey }}
             >
-              <article className="invoice-printable" aria-label="Printable client invoice">
+              <article className="invoice-printable" aria-label={t('print.label')}>
                 <header className="invoice-print-header">
                   <div>
-                    <p className="invoice-print-brand">Bahran Events</p>
-                    <p className="invoice-print-muted">Event planning and experiences</p>
+                    <p className="invoice-print-brand">{t('print.brand')}</p>
+                    <p className="invoice-print-muted">{t('print.tagline')}</p>
                   </div>
                   <div className="invoice-print-title">
-                    <p>INVOICE</p>
+                    <p>{t('print.title')}</p>
                     <h1>{invoice.reference}</h1>
                   </div>
                 </header>
                 <div className="invoice-print-meta">
-                  <div><span>Bill to</span><strong>{invoice.customer_name}</strong></div>
-                  <div><span>Issue date</span><strong>{formatDate(invoice.date)}</strong></div>
-                  <div><span>Due date</span><strong>{formatDate(invoice.due_date)}</strong></div>
-                  <div><span>Status</span><strong>{invoice.status === 'paid' ? 'Paid' : 'Unpaid'}</strong></div>
-                  {invoice.milestone_name && <div><span>Milestone</span><strong>{invoice.milestone_name}</strong></div>}
+                  <div><span>{t('print.billTo')}</span><strong>{invoice.customer_name}</strong></div>
+                  <div><span>{t('print.issueDate')}</span><strong>{formatDate(invoice.date)}</strong></div>
+                  <div><span>{t('print.dueDate')}</span><strong>{formatDate(invoice.due_date)}</strong></div>
+                  <div><span>{t('print.status')}</span><strong>{statusLabel(invoice.status)}</strong></div>
+                  {invoice.milestone_name && <div><span>{t('print.milestone')}</span><strong>{invoice.milestone_name}</strong></div>}
                 </div>
                 <div className="invoice-print-scope">
-                  <span>Plan</span><strong>{invoice.plan_name || '—'}</strong>
-                  <span>Package</span><strong>{invoice.package_name || '—'}</strong>
-                  {invoice.event && <><span>Event reference</span><strong>#{invoice.event}</strong></>}
+                  <span>{t('print.plan')}</span><strong>{invoice.plan_name || '—'}</strong>
+                  <span>{t('print.package')}</span><strong>{invoice.package_name || '—'}</strong>
+                  {invoice.event && <><span>{t('print.eventRef')}</span><strong>#{invoice.event}</strong></>}
                 </div>
                 <table className="invoice-print-table">
-                  <thead><tr><th>Description</th><th>Subtotal</th><th>Tax</th><th>Amount</th></tr></thead>
+                  <thead><tr><th>{t('print.description')}</th><th>{t('print.subtotal')}</th><th>{t('print.tax')}</th><th>{t('print.amount')}</th></tr></thead>
                   <tbody>{invoice.lines.map((line) => <tr key={line.id}>
                     <td><strong>{line.content_name}</strong>{line.tax_components.length > 0 && <small>{line.tax_components.map((tax) => `${tax.name} ${tax.rate}%`).join(' · ')}</small>}</td>
                     <td>{formatAmount(line.price)}</td>
@@ -285,9 +290,9 @@ export function InvoiceDetailPage() {
                   <div className="invoice-print-tax-breakdown">
                     {invoice.tax_breakdown.map((tax) => <div key={tax.kind}><span>{tax.kind}</span><span>{formatAmount(tax.amount)}</span></div>)}
                   </div>
-                  <div className="invoice-print-grand-total"><span>Total due</span><strong>{formatAmount(invoice.total)}</strong></div>
+                  <div className="invoice-print-grand-total"><span>{t('print.totalDue')}</span><strong>{formatAmount(invoice.total)}</strong></div>
                 </section>
-                <footer className="invoice-print-footer">Thank you for choosing Bahran Events.</footer>
+                <footer className="invoice-print-footer">{t('print.thanks')}</footer>
               </article>
             </RecordFormView>
           )}
